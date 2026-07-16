@@ -1,0 +1,85 @@
+{
+  "name": "@syrokomskyi/changelog-live",
+  "version": "0.0.1",
+  "description": "AI-powered CHANGELOG.md generator from git history with multi-language support",
+  "license": "Apache-2.0",
+  "author": "Andrii Syrokomskyi <andrii@syrokomskyi.com> (https://syrokomskyi.com)",
+  "homepage": "https://github.com/syrokomskyi/changelog-live#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/syrokomskyi/changelog-live.git"
+  },
+  "bugs": {
+    "url": "https://github.com/syrokomskyi/changelog-live/issues"
+  },
+  "keywords": [
+    "changelog",
+    "ai",
+    "openai",
+    "anthropic",
+    "gemini",
+    "git",
+    "automation",
+    "llm",
+    "release-notes"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "pnpm exec tsc -p tsconfig.lib.json",
+    "changelog": "pnpm exec tsx -C @syrokomskyi/source src/cli.ts",
+    "lint": "pnpm exec eslint src --ext .ts",
+    "test": "pnpm exec vitest run",
+    "typecheck": "pnpm exec tsc -p tsconfig.lib.json --noEmit",
+    "prepublishOnly": "pnpm run build",
+    "upgrade-packages": "pnpm up --latest"
+  },
+  "bin": {
+    "changelog-live": "./dist/cli.js"
+  },
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "@syrokomskyi/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "!**/*.tsbuildinfo"],
+  "dependencies": {
+    "commander": "^14.0.0",
+    "tslib": "^2.8.1",
+    "yaml": "^2.7.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@anthropic-ai/sdk": "^0.111.0",
+    "@eslint/js": "^10.0.1",
+    "@google/generative-ai": "^0.24.0",
+    "@types/node": "25.6.0",
+    "eslint": "~10.7.0",
+    "openai": "^6.46.0",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.64.0",
+    "vitest": "^4.1.10"
+  },
+  "peerDependencies": {
+    "@anthropic-ai/sdk": "^0.111.0",
+    "@google/generative-ai": "^0.24.0",
+    "openai": "^6.46.0"
+  },
+  "peerDependenciesMeta": {
+    "@anthropic-ai/sdk": { "optional": true },
+    "@google/generative-ai": { "optional": true },
+    "openai": { "optional": true }
+  }
+}
