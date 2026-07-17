@@ -345,4 +345,30 @@ describe("parsePublicGenerationResponse", () => {
     expect(section!.weekStart).toBe("2026-07-10");
     expect(section!.weekEnd).toBe("2026-07-17");
   });
+
+  it("uses config-driven week boundaries, not AI-generated dates in title", () => {
+    const configWeek: WeekGroup = {
+      weekStart: "2026-07-09",
+      weekEnd: "2026-07-15",
+      commits: [],
+    };
+
+    const raw = JSON.stringify({
+      title: "Plattform-Updates für die Woche 2026-07-10 — 2026-07-17",
+      summary: "AI used wrong dates.",
+      categories: {
+        added: ["Feature A"],
+        improved: [],
+        fixed: [],
+        security_compliance: [],
+        integrations: [],
+      },
+    });
+
+    const section = parsePublicGenerationResponse(raw, configWeek);
+    expect(section).not.toBeNull();
+    expect(section!.weekStart).toBe("2026-07-09");
+    expect(section!.weekEnd).toBe("2026-07-15");
+    expect(section!.title).toBe("Plattform-Updates für die Woche 2026-07-09 — 2026-07-15");
+  });
 });

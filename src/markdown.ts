@@ -80,7 +80,7 @@ const SECTION_HEADER_REGEX = /^##\s+(\d{4}-\d{2}-\d{2})\s+(?:\.\.|[—–-])\s+(
 export function parseChangelog(content: string): ParsedChangelog {
   const lines = content.split("\n");
   const sections: ParsedSection[] = [];
-  let headerLines: string[] = [];
+  const headerLines: string[] = [];
   let currentSection: ParsedSection | null = null;
   let currentLines: string[] = [];
 
@@ -277,7 +277,7 @@ export function renderFullPublicChangelog(
 export function parsePublicChangelog(content: string): ParsedPublicChangelog {
   const lines = content.split("\n");
   const sections: ParsedPublicSection[] = [];
-  let headerLines: string[] = [];
+  const headerLines: string[] = [];
   let currentSection: ParsedPublicSection | null = null;
   let currentLines: string[] = [];
 

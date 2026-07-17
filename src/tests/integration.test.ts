@@ -10,7 +10,6 @@ import {
   isWeekInProgress,
   formatDate,
   getWeekStart,
-  getWeekEnd,
 } from "../git-collect.js";
 
 async function createTempRepo(): Promise<{ dir: string; cleanup: () => Promise<void> }> {

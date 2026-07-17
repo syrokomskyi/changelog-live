@@ -121,7 +121,7 @@ export async function generateChangelog(
   }
 
   // 2. Collect commits
-  let commits = collectCommits(config.git.repoRoot, paths, sinceDate);
+  const commits = collectCommits(config.git.repoRoot, paths, sinceDate);
 
   if (commits.length === 0 && !config.publicChangelog) {
     console.log("changelog-live: no new commits since last entry, skipping.");

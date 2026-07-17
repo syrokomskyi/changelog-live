@@ -415,8 +415,10 @@ export function parsePublicGenerationResponse(
   const dateMatch = title.match(TITLE_DATE_REGEX);
   if (!dateMatch) return null;
 
-  const weekStart = dateMatch[1];
-  const weekEnd = dateMatch[2];
+  // Always use the config-driven week boundaries (from groupCommitsByWeek),
+  // not the AI-generated dates in the title. This ensures the public changelog
+  // has the same week cadence as the internal changelog.
+  const correctedTitle = title.replace(TITLE_DATE_REGEX, `${week.weekStart} — ${week.weekEnd}`);
 
   const categories = {} as Record<PublicChangelogCategory, string[]>;
   for (const cat of PUBLIC_CHANGELOG_CATEGORIES) {
@@ -424,9 +426,9 @@ export function parsePublicGenerationResponse(
   }
 
   return {
-    weekStart,
-    weekEnd,
-    title,
+    weekStart: week.weekStart,
+    weekEnd: week.weekEnd,
+    title: correctedTitle,
     summary: parsed.summary ?? "",
     categories,
   };
