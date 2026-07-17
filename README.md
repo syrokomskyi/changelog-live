@@ -14,46 +14,58 @@ AI-powered CHANGELOG.md generator that collects git history, groups changes by c
 - CLI + library API
 - YAML configuration file
 
-## Quick start
+## Quick start (standalone)
 
 ```bash
 # Initialize: discover all git history paths and create changelog.config.yaml
-npx @syrokomskyi/changelog-live init
+changelog-live init
 
 # Generate changelog from existing config
-npx @syrokomskyi/changelog-live --config changelog.config.yaml
-
-# Using library
-import { generateChangelog } from "@syrokomskyi/changelog-live";
-
-await generateChangelog({
-  git: { repoRoot: ".", subPath: "src" },
-  grouping: { period: "week", startDay: "thu" },
-  languages: { primary: "en", translations: ["de"] },
-  ai: {
-    generation: { provider: "openai", model: "gpt-4.1" },
-    translation: { provider: "openai", model: "gpt-4.1" },
-  },
-  output: { dir: ".", filename: "CHANGELOG" },
-});
+changelog-live --config changelog.config.yaml
 ```
 
-## `init` subcommand
+## Quick start (in this Turborepo)
 
-`changelog-live init` discovers all historical git paths for the current working directory and creates `changelog.config.yaml`. It:
+Every workspace project that has a `changelog.config.yaml` includes two npm scripts:
 
-1. Detects the git repo root and CWD's relative position via `git rev-parse`.
-2. Collects seed paths: CWD + all visible first-level subdirectories (excludes hidden `.`-prefixed and `-`-prefixed dirs).
-3. For each seed, finds a seed file and traces its full rename history via `git log --follow --name-status`.
-4. Extracts all directories where the file ever lived, including ancestor directories.
-5. Recursively traces historical directories to catch files that existed in old paths but were deleted before renames.
-6. Writes `changelog.config.yaml` with all discovered paths and default settings.
+```bash
+# Generate CHANGELOG.md for a single project
+pnpm --filter @syrokomskyi/site run changelog
 
-The `init` command reads `changelog.config.default.yaml` from the repo root (or nearest ancestor) for default settings. If missing, it falls back to built-in defaults and prints a message. Skips initialization if `changelog.config.yaml` already exists.
+# Initialize changelog.config.yaml in a single project
+pnpm --filter @syrokomskyi/site run changelog:init
+
+# Generate changelogs across ALL projects in the monorepo
+pnpm changelog
+
+# Initialize changelog configs across ALL projects
+pnpm changelog:init
+```
+
+Both `pnpm changelog` and `pnpm changelog:init` run through Turborepo (`pnpm turbo run changelog` / `changelog:init`), so they execute in parallel with correct dependency ordering.
+
+### How it works
+
+1. **`changelog:init`** — runs `changelog-live init` in each project directory. Auto-discovers all historical git paths via `git log --follow` rename tracing and writes `changelog.config.yaml`. Skips projects that already have a config file. Reads defaults from `changelog.config.default.yaml` at the repo root.
+
+2. **`changelog`** — runs `changelog-live` in each project directory. Reads `changelog.config.yaml`, collects git commits since the last CHANGELOG entry, groups by completed weeks, sends to an LLM for professional formatting, and writes `CHANGELOG.md` (plus translations). Idempotent: re-running on the same week produces no changes.
+
+### Adding changelog to a new project
+
+```bash
+cd apps/gen/my-new-project
+pnpm --filter @syrokomskyi/my-new-project run changelog:init
+```
+
+This creates `changelog.config.yaml`. Then:
+
+```bash
+pnpm --filter @syrokomskyi/my-new-project run changelog
+```
+
+The `@syrokomskyi/changelog-live` devDependency and both scripts are added automatically when `changelog.config.yaml` is present in the project.
 
 ## Configuration
-
-Create a `changelog.config.yaml`:
 
 ```yaml
 git:
@@ -83,4 +95,34 @@ sortOrder: desc
 
 ## API keys
 
-Set environment variables: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`.
+Set environment variables: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`. The CLI auto-loads `.env` from the git repo root.
+
+## Library API
+
+```ts
+import { generateChangelog } from "@syrokomskyi/changelog-live";
+
+await generateChangelog({
+  git: { repoRoot: ".", subPath: "src" },
+  grouping: { period: "week", startDay: "thu" },
+  languages: { primary: "en", translations: ["de"] },
+  ai: {
+    generation: { provider: "openai", model: "gpt-4.1" },
+    translation: { provider: "openai", model: "gpt-4.1" },
+  },
+  output: { dir: ".", filename: "CHANGELOG" },
+});
+```
+
+## `init` subcommand
+
+`changelog-live init` discovers all historical git paths for the current working directory and creates `changelog.config.yaml`. It:
+
+1. Detects the git repo root and CWD's relative position via `git rev-parse`.
+2. Collects seed paths: CWD + all visible first-level subdirectories (excludes hidden `.`-prefixed and `-`-prefixed dirs).
+3. For each seed, finds a seed file and traces its full rename history via `git log --follow --name-status`.
+4. Extracts all directories where the file ever lived, including ancestor directories.
+5. Recursively traces historical directories to catch files that existed in old paths but were deleted before renames.
+6. Writes `changelog.config.yaml` with all discovered paths and default settings.
+
+The `init` command reads `changelog.config.default.yaml` from the repo root (or nearest ancestor) for default settings. If missing, it falls back to built-in defaults and prints a message. Skips initialization if `changelog.config.yaml` already exists.

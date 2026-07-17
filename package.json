@@ -40,7 +40,8 @@
     "test": "pnpm exec vitest run",
     "typecheck": "pnpm exec tsc -p tsconfig.lib.json --noEmit",
     "prepublishOnly": "pnpm run build",
-    "upgrade-packages": "pnpm up --latest"
+    "upgrade-packages": "pnpm up --latest",
+    "changelog:init": "changelog-live init"
   },
   "bin": {
     "changelog-live": "./dist/cli.js"
@@ -54,7 +55,10 @@
       "default": "./dist/index.js"
     }
   },
-  "files": ["dist", "!**/*.tsbuildinfo"],
+  "files": [
+    "dist",
+    "!**/*.tsbuildinfo"
+  ],
   "dependencies": {
     "commander": "^14.0.0",
     "tslib": "^2.8.1",
@@ -78,8 +82,14 @@
     "openai": "^6.46.0"
   },
   "peerDependenciesMeta": {
-    "@anthropic-ai/sdk": { "optional": true },
-    "@google/generative-ai": { "optional": true },
-    "openai": { "optional": true }
+    "@anthropic-ai/sdk": {
+      "optional": true
+    },
+    "@google/generative-ai": {
+      "optional": true
+    },
+    "openai": {
+      "optional": true
+    }
   }
 }
