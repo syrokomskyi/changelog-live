@@ -1,4 +1,4 @@
-# @syrokomskyi/changelog-live
+# @wgogol/changelog-live
 
 AI-powered CHANGELOG.md generator that collects git history, groups changes by configurable periods (default: weekly, starting Thursday), and produces professional changelog entries using LLMs.
 
@@ -64,7 +64,7 @@ This creates `changelog.config.yaml`. Then:
 pnpm --filter @syrokomskyi/my-new-project run changelog
 ```
 
-The `@syrokomskyi/changelog-live` devDependency and both scripts are added automatically when `changelog.config.yaml` is present in the project.
+The `@wgogol/changelog-live` devDependency and both scripts are added automatically when `changelog.config.yaml` is present in the project.
 
 ## Configuration
 
@@ -115,7 +115,7 @@ Set environment variables: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KE
 ## Library API
 
 ```ts
-import { generateChangelog } from "@syrokomskyi/changelog-live";
+import { generateChangelog } from "@wgogol/changelog-live";
 
 await generateChangelog({
   git: { repoRoot: ".", subPath: "src" },

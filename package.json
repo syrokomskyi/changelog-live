@@ -1,16 +1,16 @@
 {
-  "name": "@syrokomskyi/changelog-live",
+  "name": "@wgogol/changelog-live",
   "version": "0.0.1",
   "description": "AI-powered CHANGELOG.md generator from git history with multi-language support",
   "license": "Apache-2.0",
   "author": "Andrii Syrokomskyi <andrii@syrokomskyi.com> (https://syrokomskyi.com)",
-  "homepage": "https://github.com/syrokomskyi/changelog-live#readme",
+  "homepage": "https://github.com/wgogol/changelog-live#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/syrokomskyi/changelog-live.git"
+    "url": "git+https://github.com/wgogol/changelog-live.git"
   },
   "bugs": {
-    "url": "https://github.com/syrokomskyi/changelog-live/issues"
+    "url": "https://github.com/wgogol/changelog-live/issues"
   },
   "keywords": [
     "changelog",
@@ -55,10 +55,7 @@
       "default": "./dist/index.js"
     }
   },
-  "files": [
-    "dist",
-    "!**/*.tsbuildinfo"
-  ],
+  "files": ["dist", "!**/*.tsbuildinfo"],
   "dependencies": {
     "commander": "^15.0.0",
     "tslib": "^2.8.1",

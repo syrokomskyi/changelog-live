@@ -52,7 +52,7 @@ Minimal example:
       provider: openai
 
 Requires OPENAI_API_KEY (or ANTHROPIC_API_KEY / GEMINI_API_KEY) in environment.
-Docs: https://github.com/syrokomskyi/changelog-live
+Docs: https://github.com/wgogol/changelog-live
 `;
 
 // ---------------------------------------------------------------------------
