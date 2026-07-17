@@ -81,3 +81,17 @@ export function getAllFilePaths(config: ChangelogConfig): string[] {
   }
   return paths;
 }
+
+/**
+ * Resolve the output file path for the public changelog (primary language).
+ */
+export function getPublicPrimaryFilePath(config: ChangelogConfig): string {
+  return path.join(config.output.dir, "CHANGELOG_PUBLIC.md");
+}
+
+/**
+ * Resolve the output file path for a public changelog translation.
+ */
+export function getPublicTranslationFilePath(config: ChangelogConfig, lang: string): string {
+  return path.join(config.output.dir, `CHANGELOG_PUBLIC.${lang}.md`);
+}

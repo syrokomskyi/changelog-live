@@ -78,6 +78,8 @@ output:
   filename: CHANGELOG
 
 sortOrder: desc
+
+publicChangelog: false
 `;
 
 function findDefaultConfig(cwd: string): string | null {

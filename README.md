@@ -10,6 +10,7 @@ AI-powered CHANGELOG.md generator that collects git history, groups changes by c
 - Multi-language support with 100% sync between translations
 - Incremental updates — only processes new commits since last entry
 - Completed weeks only — in-progress (current) weeks are never written; re-running on the same week is idempotent
+- **Public changelog** — optional `CHANGELOG_PUBLIC.md` with client-facing categories, AI-generated titles, and summaries (independent incremental flow)
 - `init` subcommand — auto-discovers all historical git paths via rename tracing
 - CLI + library API
 - YAML configuration file
@@ -91,7 +92,21 @@ output:
   filename: CHANGELOG
 maxHistoryWeeks: 2
 sortOrder: desc
+publicChangelog: false
 ```
+
+### `publicChangelog`
+
+When set to `true`, the tool generates an additional `CHANGELOG_PUBLIC.md` alongside the internal `CHANGELOG.md`. This is a client-facing changelog with:
+
+- **Separate categories**: Added, Improved, Fixed, Security & Compliance, Integrations (instead of the internal Keep a Changelog categories)
+- **AI-generated title** with date range (e.g. `Plattform-Updates für die Woche 2026-07-10 — 2026-07-17`)
+- **Summary paragraph** (2–3 sentences) written by a senior technical writer prompt
+- **Independent incremental flow** — reads `CHANGELOG_PUBLIC.md` to determine last entry, collects commits, and generates sections regardless of internal changelog state
+- **Translations** — `CHANGELOG_PUBLIC.{lang}.md` files generated for each configured translation language
+- **Escalating retry** — up to 3 attempts if the AI title lacks the required date range
+
+The public changelog uses the same `ai.generation` provider and model as the internal changelog. No `commitMessage` is generated from the public call (the internal call provides it for export workflows).
 
 ## API keys
 
@@ -111,6 +126,7 @@ await generateChangelog({
     translation: { provider: "openai", model: "gpt-4.1" },
   },
   output: { dir: ".", filename: "CHANGELOG" },
+  publicChangelog: true,
 });
 ```
 

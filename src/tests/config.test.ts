@@ -82,4 +82,17 @@ describe("validateConfig", () => {
     });
     expect(config.sortOrder).toBe("asc");
   });
+
+  it("defaults publicChangelog to false", () => {
+    const config = validateConfig({ git: { subPath: "src" } });
+    expect(config.publicChangelog).toBe(false);
+  });
+
+  it("accepts publicChangelog true", () => {
+    const config = validateConfig({
+      git: { subPath: "src" },
+      publicChangelog: true,
+    });
+    expect(config.publicChangelog).toBe(true);
+  });
 });

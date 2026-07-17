@@ -72,6 +72,7 @@ export const CHANGELOG_CONFIG_SCHEMA = z.object({
     .default({ dir: ".", filename: "CHANGELOG" }),
   maxHistoryWeeks: z.number().int().positive().optional(),
   sortOrder: SORT_ORDER_SCHEMA.default("desc"),
+  publicChangelog: z.boolean().default(false),
 });
 
 export type ChangelogConfig = z.infer<typeof CHANGELOG_CONFIG_SCHEMA>;
@@ -146,5 +147,48 @@ export interface ParsedChangelog {
 export interface ParsedSection {
   weekStart: string;
   weekEnd: string;
+  raw: string;
+}
+
+// ---------------------------------------------------------------------------
+// Public changelog types
+// ---------------------------------------------------------------------------
+
+export const PUBLIC_CHANGELOG_CATEGORIES = [
+  "added",
+  "improved",
+  "fixed",
+  "security_compliance",
+  "integrations",
+] as const;
+
+export type PublicChangelogCategory = (typeof PUBLIC_CHANGELOG_CATEGORIES)[number];
+
+export const PUBLIC_CATEGORY_LABELS: Record<PublicChangelogCategory, string> = {
+  added: "Added",
+  improved: "Improved",
+  fixed: "Fixed",
+  security_compliance: "Security & Compliance",
+  integrations: "Integrations",
+};
+
+export interface PublicChangelogSection {
+  weekStart: string;
+  weekEnd: string;
+  title: string;
+  summary: string;
+  categories: Record<PublicChangelogCategory, string[]>;
+}
+
+export interface ParsedPublicChangelog {
+  header: string;
+  sections: ParsedPublicSection[];
+}
+
+export interface ParsedPublicSection {
+  weekStart: string;
+  weekEnd: string;
+  title: string;
+  summary: string;
   raw: string;
 }
