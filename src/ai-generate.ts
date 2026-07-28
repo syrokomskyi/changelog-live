@@ -80,15 +80,10 @@ const RESPONSE_SCHEMA = {
     categories: {
       type: "object" as const,
       additionalProperties: false,
-      properties: {
-        added: { type: "array", items: { type: "string" } },
-        changed: { type: "array", items: { type: "string" } },
-        fixed: { type: "array", items: { type: "string" } },
-        removed: { type: "array", items: { type: "string" } },
-        security: { type: "array", items: { type: "string" } },
-        documentation: { type: "array", items: { type: "string" } },
-      },
-      required: ["added", "changed", "fixed", "removed", "security", "documentation"],
+      properties: Object.fromEntries(
+        CHANGELOG_CATEGORIES.map((c) => [c, { type: "array", items: { type: "string" } }]),
+      ),
+      required: [...CHANGELOG_CATEGORIES],
     },
     commitMessage: { type: "string" },
   },
@@ -211,14 +206,10 @@ const PUBLIC_RESPONSE_SCHEMA = {
     categories: {
       type: "object" as const,
       additionalProperties: false,
-      properties: {
-        added: { type: "array", items: { type: "string" } },
-        improved: { type: "array", items: { type: "string" } },
-        fixed: { type: "array", items: { type: "string" } },
-        security_compliance: { type: "array", items: { type: "string" } },
-        integrations: { type: "array", items: { type: "string" } },
-      },
-      required: ["added", "improved", "fixed", "security_compliance", "integrations"],
+      properties: Object.fromEntries(
+        PUBLIC_CHANGELOG_CATEGORIES.map((c) => [c, { type: "array", items: { type: "string" } }]),
+      ),
+      required: [...PUBLIC_CHANGELOG_CATEGORIES],
     },
   },
   required: ["title", "summary", "categories"],

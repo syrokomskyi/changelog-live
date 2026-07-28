@@ -12,11 +12,13 @@
 */
 
 import type {
+  ChangelogCategory,
   ChangelogSection,
   ParsedChangelog,
   ParsedSection,
   ParsedPublicChangelog,
   ParsedPublicSection,
+  PublicChangelogCategory,
   PublicChangelogSection,
   SortOrder,
 } from "./types.js";
@@ -190,14 +192,9 @@ function parseSectionRaw(raw: string): ChangelogSection | null {
   const weekStart = headerMatch[1];
   const weekEnd = headerMatch[2];
 
-  const categories = {
-    added: [] as string[],
-    changed: [] as string[],
-    fixed: [] as string[],
-    removed: [] as string[],
-    security: [] as string[],
-    documentation: [] as string[],
-  };
+  const categories = Object.fromEntries(
+    CHANGELOG_CATEGORIES.map((c) => [c, [] as string[]]),
+  ) as Record<ChangelogCategory, string[]>;
 
   let currentCat: keyof typeof categories | null = null;
 
@@ -410,13 +407,9 @@ function parsePublicSectionRawFull(s: ParsedPublicSection): PublicChangelogSecti
   const headerMatch = lines[0]?.match(PUBLIC_SECTION_HEADER_REGEX);
   if (!headerMatch) return null;
 
-  const categories = {
-    added: [] as string[],
-    improved: [] as string[],
-    fixed: [] as string[],
-    security_compliance: [] as string[],
-    integrations: [] as string[],
-  };
+  const categories = Object.fromEntries(
+    PUBLIC_CHANGELOG_CATEGORIES.map((c) => [c, [] as string[]]),
+  ) as Record<PublicChangelogCategory, string[]>;
 
   let currentCat: keyof typeof categories | null = null;
 
