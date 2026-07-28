@@ -8,6 +8,7 @@
 </MODULE_CONTRACT>
 <CHANGE_SUMMARY>
   <item>Initial implementation of changelog parsing and rendering functions.</item>
+  <item>Extracted generic parseCategoriesFromMarkdown helper to eliminate duplicated category parsing across four functions.</item>
 </CHANGE_SUMMARY>
 */
 
