@@ -13,27 +13,8 @@
 
 import type { Provider } from "./types.js";
 import { getApiKey } from "./config.js";
-
-// ---------------------------------------------------------------------------
-// Language helpers
-// ---------------------------------------------------------------------------
-
-const LANGUAGE_NAMES: Record<string, string> = {
-  en: "English",
-  de: "German",
-  uk: "Ukrainian",
-  ru: "Russian",
-  fr: "French",
-  es: "Spanish",
-  it: "Italian",
-  nl: "Dutch",
-  pl: "Polish",
-  pt: "Portuguese",
-};
-
-function getLanguageName(code: string): string {
-  return LANGUAGE_NAMES[code] ?? code;
-}
+import { callAiProvider } from "./ai-provider.js";
+import { getLanguageName } from "./languages.js";
 
 // ---------------------------------------------------------------------------
 // Translation
@@ -57,7 +38,13 @@ export async function translateChangelogSection(opts: TranslateOptions): Promise
   const systemPrompt = buildTranslationPrompt(opts.sourceLanguage, opts.targetLanguage);
   const userPrompt = opts.markdown;
 
-  const raw = await callProvider(opts.provider, opts.model, apiKey, systemPrompt, userPrompt);
+  const raw = await callAiProvider({
+    provider: opts.provider,
+    model: opts.model,
+    apiKey,
+    systemPrompt,
+    userPrompt,
+  });
   return raw;
 }
 
@@ -70,82 +57,4 @@ Rules:
 3. Maintain the same structure and ordering.
 4. Use natural, professional language for ${getLanguageName(targetLang)}.
 5. Return ONLY the translated markdown — no explanations, no preamble.`;
-}
-
-// ---------------------------------------------------------------------------
-// Provider calls (simplified — no structured outputs needed for translation)
-// ---------------------------------------------------------------------------
-
-async function callProvider(
-  provider: Provider,
-  model: string,
-  apiKey: string,
-  systemPrompt: string,
-  userPrompt: string,
-): Promise<string> {
-  switch (provider) {
-    case "openai":
-      return callOpenAI(model, apiKey, systemPrompt, userPrompt);
-    case "anthropic":
-      return callAnthropic(model, apiKey, systemPrompt, userPrompt);
-    case "gemini":
-      return callGemini(model, apiKey, systemPrompt, userPrompt);
-  }
-}
-
-async function callOpenAI(
-  model: string,
-  apiKey: string,
-  systemPrompt: string,
-  userPrompt: string,
-): Promise<string> {
-  const { default: OpenAI } = await import("openai");
-  const client = new OpenAI({ apiKey });
-
-  const response = await client.chat.completions.create({
-    model,
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
-    ],
-  });
-
-  return response.choices[0]?.message?.content ?? "";
-}
-
-async function callAnthropic(
-  model: string,
-  apiKey: string,
-  systemPrompt: string,
-  userPrompt: string,
-): Promise<string> {
-  const { default: Anthropic } = await import("@anthropic-ai/sdk");
-  const client = new Anthropic({ apiKey });
-
-  const response = await client.messages.create({
-    model,
-    max_tokens: 4096,
-    system: systemPrompt,
-    messages: [{ role: "user", content: userPrompt }],
-  });
-
-  const textBlock = response.content.find((b) => b.type === "text");
-  return textBlock?.text ?? "";
-}
-
-async function callGemini(
-  model: string,
-  apiKey: string,
-  systemPrompt: string,
-  userPrompt: string,
-): Promise<string> {
-  const { GoogleGenerativeAI } = await import("@google/generative-ai");
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const genModel = genAI.getGenerativeModel({
-    model,
-    systemInstruction: systemPrompt,
-  });
-
-  const result = await genModel.generateContent(userPrompt);
-  return result.response.text();
 }

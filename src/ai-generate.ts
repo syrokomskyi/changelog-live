@@ -27,27 +27,8 @@ import {
   PUBLIC_CATEGORY_LABELS,
 } from "./types.js";
 import { getApiKey } from "./config.js";
-
-// ---------------------------------------------------------------------------
-// Prompt construction
-// ---------------------------------------------------------------------------
-
-const LANGUAGE_NAMES: Record<string, string> = {
-  en: "English",
-  de: "German",
-  uk: "Ukrainian",
-  ru: "Russian",
-  fr: "French",
-  es: "Spanish",
-  it: "Italian",
-  nl: "Dutch",
-  pl: "Polish",
-  pt: "Portuguese",
-};
-
-function getLanguageName(code: string): string {
-  return LANGUAGE_NAMES[code] ?? code;
-}
+import { callAiProvider } from "./ai-provider.js";
+import { getLanguageName } from "./languages.js";
 
 export function formatCommitsForPrompt(commits: GitCommit[]): string {
   return commits
@@ -134,110 +115,15 @@ export async function generateChangelogSection(opts: GenerateOptions): Promise<C
   const systemPrompt = buildSystemPrompt(opts.language);
   const userPrompt = formatCommitsForPrompt(opts.week.commits);
 
-  const raw = await callProvider(opts.provider, opts.model, apiKey, systemPrompt, userPrompt);
+  const raw = await callAiProvider({
+    provider: opts.provider,
+    model: opts.model,
+    apiKey,
+    systemPrompt,
+    userPrompt,
+    schema: RESPONSE_SCHEMA,
+  });
   return parseGenerationResponse(raw, opts.week);
-}
-
-/**
- * Call the appropriate AI provider and return the raw response text.
- * When schema is provided, OpenAI uses structured outputs with that schema.
- */
-async function callProvider(
-  provider: Provider,
-  model: string,
-  apiKey: string,
-  systemPrompt: string,
-  userPrompt: string,
-  schema?: Record<string, unknown>,
-): Promise<string> {
-  switch (provider) {
-    case "openai":
-      return callOpenAI(model, apiKey, systemPrompt, userPrompt, schema);
-    case "anthropic":
-      return callAnthropic(model, apiKey, systemPrompt, userPrompt);
-    case "gemini":
-      return callGemini(model, apiKey, systemPrompt, userPrompt);
-  }
-}
-
-async function callOpenAI(
-  model: string,
-  apiKey: string,
-  systemPrompt: string,
-  userPrompt: string,
-  schema?: Record<string, unknown>,
-): Promise<string> {
-  const { default: OpenAI } = await import("openai");
-  const client = new OpenAI({ apiKey });
-
-  const responseFormat = schema
-    ? {
-        type: "json_schema" as const,
-        json_schema: {
-          name: "changelog_section",
-          schema,
-          strict: true,
-        },
-      }
-    : {
-        type: "json_schema" as const,
-        json_schema: {
-          name: "changelog_section",
-          schema: RESPONSE_SCHEMA,
-          strict: true,
-        },
-      };
-
-  const response = await client.chat.completions.create({
-    model,
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
-    ],
-    response_format: responseFormat,
-  });
-
-  return response.choices[0]?.message?.content ?? "{}";
-}
-
-async function callAnthropic(
-  model: string,
-  apiKey: string,
-  systemPrompt: string,
-  userPrompt: string,
-): Promise<string> {
-  const { default: Anthropic } = await import("@anthropic-ai/sdk");
-  const client = new Anthropic({ apiKey });
-
-  const response = await client.messages.create({
-    model,
-    max_tokens: 4096,
-    system: systemPrompt,
-    messages: [{ role: "user", content: userPrompt }],
-  });
-
-  const textBlock = response.content.find((b) => b.type === "text");
-  return textBlock?.text ?? "{}";
-}
-
-async function callGemini(
-  model: string,
-  apiKey: string,
-  systemPrompt: string,
-  userPrompt: string,
-): Promise<string> {
-  const { GoogleGenerativeAI } = await import("@google/generative-ai");
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const genModel = genAI.getGenerativeModel({
-    model,
-    systemInstruction: systemPrompt,
-    generationConfig: {
-      responseMimeType: "application/json",
-    },
-  });
-
-  const result = await genModel.generateContent(userPrompt);
-  return result.response.text();
 }
 
 // ---------------------------------------------------------------------------
@@ -380,14 +266,15 @@ export async function generatePublicChangelogSection(
         `Example title: "Plattform-Updates für die Woche ${opts.week.weekStart} — ${opts.week.weekEnd}".`;
     }
 
-    const raw = await callProvider(
-      opts.provider,
-      opts.model,
+    const raw = await callAiProvider({
+      provider: opts.provider,
+      model: opts.model,
       apiKey,
       systemPrompt,
       userPrompt,
-      PUBLIC_RESPONSE_SCHEMA,
-    );
+      schema: PUBLIC_RESPONSE_SCHEMA,
+      schemaName: "public_changelog_section",
+    });
     lastRaw = raw;
 
     const section = parsePublicGenerationResponse(raw, opts.week);

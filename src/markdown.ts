@@ -446,3 +446,127 @@ function parsePublicSectionRawFull(s: ParsedPublicSection): PublicChangelogSecti
     categories,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Translated section parsing
+// ---------------------------------------------------------------------------
+
+/**
+ * Parse a translated markdown section back into a ChangelogSection.
+ * Preserves the weekStart/weekEnd/commitMessage from the original.
+ */
+export function parseTranslatedSection(
+  translatedMd: string,
+  original: ChangelogSection,
+): ChangelogSection {
+  const parsed = parseChangelog(translatedMd);
+
+  if (parsed.sections.length > 0) {
+    const section = parsed.sections[0];
+    const categories = {
+      added: [] as string[],
+      changed: [] as string[],
+      fixed: [] as string[],
+      removed: [] as string[],
+      security: [] as string[],
+      documentation: [] as string[],
+    };
+
+    let currentCat: keyof typeof categories | null = null;
+    for (const line of section.raw.split("\n")) {
+      const catMatch = line.match(/^###\s+(.+)$/);
+      if (catMatch) {
+        const label = catMatch[1].toLowerCase();
+        const catKey = CHANGELOG_CATEGORIES.find((c) => CATEGORY_LABELS[c].toLowerCase() === label);
+        currentCat = catKey ?? null;
+        continue;
+      }
+      const entryMatch = line.match(/^-\s+(.+)$/);
+      if (entryMatch && currentCat) {
+        categories[currentCat].push(entryMatch[1]);
+      }
+    }
+
+    return {
+      weekStart: original.weekStart,
+      weekEnd: original.weekEnd,
+      categories,
+      commitMessage: original.commitMessage,
+    };
+  }
+
+  return {
+    weekStart: original.weekStart,
+    weekEnd: original.weekEnd,
+    categories: {
+      added: [],
+      changed: [],
+      fixed: [],
+      removed: [],
+      security: [],
+      documentation: [],
+    },
+    commitMessage: original.commitMessage,
+  };
+}
+
+/**
+ * Parse a translated public markdown section back into a PublicChangelogSection.
+ * Preserves weekStart/weekEnd/title from the original.
+ */
+export function parseTranslatedPublicSection(
+  translatedMd: string,
+  original: PublicChangelogSection,
+): PublicChangelogSection {
+  const parsed = parsePublicChangelog(translatedMd);
+
+  if (parsed.sections.length > 0) {
+    const section = parsed.sections[0];
+    const categories = {
+      added: [] as string[],
+      improved: [] as string[],
+      fixed: [] as string[],
+      security_compliance: [] as string[],
+      integrations: [] as string[],
+    };
+
+    let currentCat: keyof typeof categories | null = null;
+    for (const line of section.raw.split("\n")) {
+      const catMatch = line.match(/^###\s+(.+)$/);
+      if (catMatch) {
+        const label = catMatch[1].toLowerCase();
+        const catKey = PUBLIC_CHANGELOG_CATEGORIES.find(
+          (c) => PUBLIC_CATEGORY_LABELS[c].toLowerCase() === label,
+        );
+        currentCat = catKey ?? null;
+        continue;
+      }
+      const entryMatch = line.match(/^-\s+(.+)$/);
+      if (entryMatch && currentCat) {
+        categories[currentCat].push(entryMatch[1]);
+      }
+    }
+
+    return {
+      weekStart: original.weekStart,
+      weekEnd: original.weekEnd,
+      title: section.title || original.title,
+      summary: section.summary || original.summary,
+      categories,
+    };
+  }
+
+  return {
+    weekStart: original.weekStart,
+    weekEnd: original.weekEnd,
+    title: original.title,
+    summary: original.summary,
+    categories: {
+      added: [],
+      improved: [],
+      fixed: [],
+      security_compliance: [],
+      integrations: [],
+    },
+  };
+}

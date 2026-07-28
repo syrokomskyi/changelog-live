@@ -42,6 +42,8 @@ import {
   renderPublicHeader,
   renderFullPublicChangelog,
   mergePublicSections,
+  parseTranslatedSection,
+  parseTranslatedPublicSection,
 } from "./markdown.js";
 
 import type { ChangelogConfig, ChangelogSection, PublicChangelogSection } from "./types.js";
@@ -85,6 +87,8 @@ export {
   renderPublicHeader,
   renderFullPublicChangelog,
   mergePublicSections,
+  parseTranslatedSection,
+  parseTranslatedPublicSection,
 } from "./markdown.js";
 
 // ---------------------------------------------------------------------------
@@ -444,151 +448,5 @@ export async function generateChangelog(
     commitMessage: lastCommitMessage,
     filesWritten,
     skipped: false,
-  };
-}
-
-/**
- * Parse a translated markdown section back into a ChangelogSection.
- * Preserves the weekStart/weekEnd/commitMessage from the original.
- */
-function parseTranslatedSection(
-  translatedMd: string,
-  original: ChangelogSection,
-): ChangelogSection {
-  const parsed = parseChangelog(translatedMd);
-
-  if (parsed.sections.length > 0) {
-    const section = parsed.sections[0];
-    // Re-parse the raw section to get categories
-    const lines = section.raw.split("\n");
-    const categories = {
-      added: [] as string[],
-      changed: [] as string[],
-      fixed: [] as string[],
-      removed: [] as string[],
-      security: [] as string[],
-      documentation: [] as string[],
-    };
-
-    let currentCat: keyof typeof categories | null = null;
-    for (const line of lines) {
-      const catMatch = line.match(/^###\s+(.+)$/);
-      if (catMatch) {
-        const label = catMatch[1].toLowerCase();
-        const catKey = (
-          ["added", "changed", "fixed", "removed", "security", "documentation"] as const
-        ).find((c) => {
-          const labels: Record<string, string> = {
-            added: "Added",
-            changed: "Changed",
-            fixed: "Fixed",
-            removed: "Removed",
-            security: "Security",
-            documentation: "Documentation",
-          };
-          return labels[c].toLowerCase() === label;
-        });
-        currentCat = catKey ?? null;
-        continue;
-      }
-      const entryMatch = line.match(/^-\s+(.+)$/);
-      if (entryMatch && currentCat) {
-        categories[currentCat].push(entryMatch[1]);
-      }
-    }
-
-    return {
-      weekStart: original.weekStart,
-      weekEnd: original.weekEnd,
-      categories,
-      commitMessage: original.commitMessage,
-    };
-  }
-
-  // Fallback: return original with empty categories
-  return {
-    weekStart: original.weekStart,
-    weekEnd: original.weekEnd,
-    categories: {
-      added: [],
-      changed: [],
-      fixed: [],
-      removed: [],
-      security: [],
-      documentation: [],
-    },
-    commitMessage: original.commitMessage,
-  };
-}
-
-/**
- * Parse a translated public markdown section back into a PublicChangelogSection.
- * Preserves weekStart/weekEnd/title from the original.
- */
-function parseTranslatedPublicSection(
-  translatedMd: string,
-  original: PublicChangelogSection,
-): PublicChangelogSection {
-  const parsed = parsePublicChangelog(translatedMd);
-
-  if (parsed.sections.length > 0) {
-    const section = parsed.sections[0];
-    const lines = section.raw.split("\n");
-    const categories = {
-      added: [] as string[],
-      improved: [] as string[],
-      fixed: [] as string[],
-      security_compliance: [] as string[],
-      integrations: [] as string[],
-    };
-
-    let currentCat: keyof typeof categories | null = null;
-    for (const line of lines) {
-      const catMatch = line.match(/^###\s+(.+)$/);
-      if (catMatch) {
-        const label = catMatch[1].toLowerCase();
-        const catKey = (
-          ["added", "improved", "fixed", "security_compliance", "integrations"] as const
-        ).find((c) => {
-          const labels: Record<string, string> = {
-            added: "Added",
-            improved: "Improved",
-            fixed: "Fixed",
-            security_compliance: "Security & Compliance",
-            integrations: "Integrations",
-          };
-          return labels[c].toLowerCase() === label;
-        });
-        currentCat = catKey ?? null;
-        continue;
-      }
-      const entryMatch = line.match(/^-\s+(.+)$/);
-      if (entryMatch && currentCat) {
-        categories[currentCat].push(entryMatch[1]);
-      }
-    }
-
-    return {
-      weekStart: original.weekStart,
-      weekEnd: original.weekEnd,
-      title: section.title || original.title,
-      summary: section.summary || original.summary,
-      categories,
-    };
-  }
-
-  // Fallback: return original with empty categories
-  return {
-    weekStart: original.weekStart,
-    weekEnd: original.weekEnd,
-    title: original.title,
-    summary: original.summary,
-    categories: {
-      added: [],
-      improved: [],
-      fixed: [],
-      security_compliance: [],
-      integrations: [],
-    },
   };
 }
