@@ -12,13 +12,11 @@
 */
 
 import type {
-  ChangelogCategory,
   ChangelogSection,
   ParsedChangelog,
   ParsedSection,
   ParsedPublicChangelog,
   ParsedPublicSection,
-  PublicChangelogCategory,
   PublicChangelogSection,
   SortOrder,
 } from "./types.js";
@@ -28,6 +26,45 @@ import {
   PUBLIC_CHANGELOG_CATEGORIES,
   PUBLIC_CATEGORY_LABELS,
 } from "./types.js";
+
+// ---------------------------------------------------------------------------
+// Shared category parser
+// ---------------------------------------------------------------------------
+
+/**
+ * Parse markdown lines into category buckets.
+ *
+ * Scans for `### Label` headers and `- entry` lines, mapping labels to
+ * category keys via the provided label map. Returns a record of empty
+ * arrays for all categories, filled with entries found in the text.
+ */
+function parseCategoriesFromMarkdown<C extends string>(
+  text: string,
+  categories: readonly C[],
+  labels: Record<C, string>,
+): Record<C, string[]> {
+  const result = Object.fromEntries(categories.map((c) => [c, [] as string[]])) as Record<
+    C,
+    string[]
+  >;
+
+  let currentCat: C | null = null;
+  for (const line of text.split("\n")) {
+    const catMatch = line.match(/^###\s+(.+)$/);
+    if (catMatch) {
+      const label = catMatch[1].toLowerCase();
+      const catKey = categories.find((c) => labels[c].toLowerCase() === label);
+      currentCat = catKey ?? null;
+      continue;
+    }
+    const entryMatch = line.match(/^-\s+(.+)$/);
+    if (entryMatch && currentCat) {
+      result[currentCat].push(entryMatch[1]);
+    }
+  }
+
+  return result;
+}
 
 // ---------------------------------------------------------------------------
 // Render: ChangelogSection → markdown
@@ -192,27 +229,7 @@ function parseSectionRaw(raw: string): ChangelogSection | null {
   const weekStart = headerMatch[1];
   const weekEnd = headerMatch[2];
 
-  const categories = Object.fromEntries(
-    CHANGELOG_CATEGORIES.map((c) => [c, [] as string[]]),
-  ) as Record<ChangelogCategory, string[]>;
-
-  let currentCat: keyof typeof categories | null = null;
-
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i];
-    const catMatch = line.match(/^###\s+(.+)$/);
-    if (catMatch) {
-      const label = catMatch[1].toLowerCase();
-      const catKey = CHANGELOG_CATEGORIES.find((c) => CATEGORY_LABELS[c].toLowerCase() === label);
-      currentCat = catKey ?? null;
-      continue;
-    }
-
-    const entryMatch = line.match(/^-\s+(.+)$/);
-    if (entryMatch && currentCat) {
-      categories[currentCat].push(entryMatch[1]);
-    }
-  }
+  const categories = parseCategoriesFromMarkdown(raw, CHANGELOG_CATEGORIES, CATEGORY_LABELS);
 
   return {
     weekStart,
@@ -407,29 +424,11 @@ function parsePublicSectionRawFull(s: ParsedPublicSection): PublicChangelogSecti
   const headerMatch = lines[0]?.match(PUBLIC_SECTION_HEADER_REGEX);
   if (!headerMatch) return null;
 
-  const categories = Object.fromEntries(
-    PUBLIC_CHANGELOG_CATEGORIES.map((c) => [c, [] as string[]]),
-  ) as Record<PublicChangelogCategory, string[]>;
-
-  let currentCat: keyof typeof categories | null = null;
-
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i];
-    const catMatch = line.match(/^###\s+(.+)$/);
-    if (catMatch) {
-      const label = catMatch[1].toLowerCase();
-      const catKey = PUBLIC_CHANGELOG_CATEGORIES.find(
-        (c) => PUBLIC_CATEGORY_LABELS[c].toLowerCase() === label,
-      );
-      currentCat = catKey ?? null;
-      continue;
-    }
-
-    const entryMatch = line.match(/^-\s+(.+)$/);
-    if (entryMatch && currentCat) {
-      categories[currentCat].push(entryMatch[1]);
-    }
-  }
+  const categories = parseCategoriesFromMarkdown(
+    s.raw,
+    PUBLIC_CHANGELOG_CATEGORIES,
+    PUBLIC_CATEGORY_LABELS,
+  );
 
   return {
     weekStart: s.weekStart,
@@ -456,29 +455,11 @@ export function parseTranslatedSection(
 
   if (parsed.sections.length > 0) {
     const section = parsed.sections[0];
-    const categories = {
-      added: [] as string[],
-      changed: [] as string[],
-      fixed: [] as string[],
-      removed: [] as string[],
-      security: [] as string[],
-      documentation: [] as string[],
-    };
-
-    let currentCat: keyof typeof categories | null = null;
-    for (const line of section.raw.split("\n")) {
-      const catMatch = line.match(/^###\s+(.+)$/);
-      if (catMatch) {
-        const label = catMatch[1].toLowerCase();
-        const catKey = CHANGELOG_CATEGORIES.find((c) => CATEGORY_LABELS[c].toLowerCase() === label);
-        currentCat = catKey ?? null;
-        continue;
-      }
-      const entryMatch = line.match(/^-\s+(.+)$/);
-      if (entryMatch && currentCat) {
-        categories[currentCat].push(entryMatch[1]);
-      }
-    }
+    const categories = parseCategoriesFromMarkdown(
+      section.raw,
+      CHANGELOG_CATEGORIES,
+      CATEGORY_LABELS,
+    );
 
     return {
       weekStart: original.weekStart,
@@ -491,14 +472,7 @@ export function parseTranslatedSection(
   return {
     weekStart: original.weekStart,
     weekEnd: original.weekEnd,
-    categories: {
-      added: [],
-      changed: [],
-      fixed: [],
-      removed: [],
-      security: [],
-      documentation: [],
-    },
+    categories: parseCategoriesFromMarkdown("", CHANGELOG_CATEGORIES, CATEGORY_LABELS),
     commitMessage: original.commitMessage,
   };
 }
@@ -515,30 +489,11 @@ export function parseTranslatedPublicSection(
 
   if (parsed.sections.length > 0) {
     const section = parsed.sections[0];
-    const categories = {
-      added: [] as string[],
-      improved: [] as string[],
-      fixed: [] as string[],
-      security_compliance: [] as string[],
-      integrations: [] as string[],
-    };
-
-    let currentCat: keyof typeof categories | null = null;
-    for (const line of section.raw.split("\n")) {
-      const catMatch = line.match(/^###\s+(.+)$/);
-      if (catMatch) {
-        const label = catMatch[1].toLowerCase();
-        const catKey = PUBLIC_CHANGELOG_CATEGORIES.find(
-          (c) => PUBLIC_CATEGORY_LABELS[c].toLowerCase() === label,
-        );
-        currentCat = catKey ?? null;
-        continue;
-      }
-      const entryMatch = line.match(/^-\s+(.+)$/);
-      if (entryMatch && currentCat) {
-        categories[currentCat].push(entryMatch[1]);
-      }
-    }
+    const categories = parseCategoriesFromMarkdown(
+      section.raw,
+      PUBLIC_CHANGELOG_CATEGORIES,
+      PUBLIC_CATEGORY_LABELS,
+    );
 
     return {
       weekStart: original.weekStart,
@@ -554,12 +509,10 @@ export function parseTranslatedPublicSection(
     weekEnd: original.weekEnd,
     title: original.title,
     summary: original.summary,
-    categories: {
-      added: [],
-      improved: [],
-      fixed: [],
-      security_compliance: [],
-      integrations: [],
-    },
+    categories: parseCategoriesFromMarkdown(
+      "",
+      PUBLIC_CHANGELOG_CATEGORIES,
+      PUBLIC_CATEGORY_LABELS,
+    ),
   };
 }
