@@ -5,6 +5,10 @@ projectDir: packages/changelog-live
 destName: changelog-live
 standalone: true
 
+postProcess:
+  - action: delete
+    path: AGENTS.md
+
 git:
   remote: git@github.com:syrokomskyi/changelog-live.git
   autoPush: true

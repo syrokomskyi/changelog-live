@@ -1,5 +1,7 @@
 # @warpgogol/changelog-live
 
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE) [![CI](https://img.shields.io/github/actions/workflow/status/syrokomskyi/changelog-live/ci.yml?logo=github-actions&logoColor=white)](https://github.com/syrokomskyi/changelog-live/actions) [![npm](https://img.shields.io/npm/v/@warpgogol/changelog-live?logo=npm&logoColor=white)](https://www.npmjs.com/package/@warpgogol/changelog-live)
+
 AI-powered CHANGELOG.md generator that collects git history, groups changes by configurable periods (default: weekly, starting Thursday), and produces professional changelog entries using LLMs.
 
 ## Features
@@ -15,9 +17,12 @@ AI-powered CHANGELOG.md generator that collects git history, groups changes by c
 - CLI + library API
 - YAML configuration file
 
-## Quick start (standalone)
+## Quick start
 
 ```bash
+# Install
+npm install -g @warpgogol/changelog-live
+
 # Initialize: discover all git history paths and create changelog.config.yaml
 changelog-live init
 
@@ -25,46 +30,12 @@ changelog-live init
 changelog-live --config changelog.config.yaml
 ```
 
-## Quick start (in this Turborepo)
-
-Every workspace project that has a `changelog.config.yaml` includes two npm scripts:
+Or use without global install:
 
 ```bash
-# Generate CHANGELOG.md for a single project
-pnpm --filter @syrokomskyi/site run changelog
-
-# Initialize changelog.config.yaml in a single project
-pnpm --filter @syrokomskyi/site run changelog:init
-
-# Generate changelogs across ALL projects in the monorepo
-pnpm changelog
-
-# Initialize changelog configs across ALL projects
-pnpm changelog:init
+npx @warpgogol/changelog-live init
+npx @warpgogol/changelog-live --config changelog.config.yaml
 ```
-
-Both `pnpm changelog` and `pnpm changelog:init` run through Turborepo (`pnpm turbo run changelog` / `changelog:init`), so they execute in parallel with correct dependency ordering.
-
-### How it works
-
-1. **`changelog:init`** — runs `changelog-live init` in each project directory. Auto-discovers all historical git paths via `git log --follow` rename tracing and writes `changelog.config.yaml`. Skips projects that already have a config file. Reads defaults from `changelog.config.default.yaml` at the repo root.
-
-2. **`changelog`** — runs `changelog-live` in each project directory. Reads `changelog.config.yaml`, collects git commits since the last CHANGELOG entry, groups by completed weeks, sends to an LLM for professional formatting, and writes `CHANGELOG.md` (plus translations). Idempotent: re-running on the same week produces no changes.
-
-### Adding changelog to a new project
-
-```bash
-cd apps/gen/my-new-project
-pnpm --filter @syrokomskyi/my-new-project run changelog:init
-```
-
-This creates `changelog.config.yaml`. Then:
-
-```bash
-pnpm --filter @syrokomskyi/my-new-project run changelog
-```
-
-The `@warpgogol/changelog-live` devDependency and both scripts are added automatically when `changelog.config.yaml` is present in the project.
 
 ## Configuration
 
