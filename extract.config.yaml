@@ -1,0 +1,10 @@
+# extract.config.yaml — changelog-live standalone package export
+# RFC-0070: @warpgogol/repo-extract
+
+projectDir: packages/changelog-live
+destName: changelog-live
+standalone: true
+
+git:
+  remote: git@github.com:syrokomskyi/changelog-live.git
+  autoPush: true
