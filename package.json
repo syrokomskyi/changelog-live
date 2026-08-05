@@ -78,8 +78,8 @@
     "vitest": "4.1.10"
   },
   "peerDependencies": {
-    "@anthropic-ai/sdk": "^0.111.0",
-    "@google/generative-ai": "^0.24.0",
+    "@anthropic-ai/sdk": "^0.115.0",
+    "@google/generative-ai": "^0.24.1",
     "openai": "^6.46.0"
   },
   "peerDependenciesMeta": {
