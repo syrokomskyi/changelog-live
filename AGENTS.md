@@ -7,7 +7,7 @@
 -->
 
 
-# `@wgogol/changelog-live` — Agent Guide
+# `@warpgogol/changelog-live` — Agent Guide
 
 AI-powered CHANGELOG.md generator from git history with multi-language support
 
@@ -22,8 +22,8 @@ This is a **package** workspace. Expose stable typed APIs. Do not import from ap
 
 | Entry point | Module |
 | --- | --- |
-| `@wgogol/changelog-live/package.json` | `./package.json` |
-| `@wgogol/changelog-live` | `./dist/index.d.ts` |
+| `@warpgogol/changelog-live/package.json` | `./package.json` |
+| `@warpgogol/changelog-live` | `./dist/index.d.ts` |
 
 ## Scripts
 
