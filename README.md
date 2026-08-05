@@ -142,3 +142,7 @@ await generateChangelog({
 6. Writes `changelog.config.yaml` with all discovered paths and default settings.
 
 The `init` command reads `changelog.config.default.yaml` from the repo root (or nearest ancestor) for default settings. If missing, it falls back to built-in defaults and prints a message. Skips initialization if `changelog.config.yaml` already exists.
+
+## Changelog
+
+[CHANGELOG.md](CHANGELOG.md)
