@@ -1,11 +1,29 @@
 # Changelog
 
 All notable changes to the `changelog-live` project are documented here.
+## 2026-07-23 .. 2026-07-29
+
+### Added
+- Add missing package.json files and a README to multiple packages and apps for improved setup clarity.
+
+### Changed
+- Upgrade dependencies across the workspace to latest versions.
+- Refactor changelog-live package to extract a reusable category parser, adopt fully data-driven category labels, and introduce shared AI provider adapter and language helpers.
+- Update CHANGE_SUMMARY headers in various axiom packages for consistency.
+
+### Fixed
+- Restore missing package.json files and align vitest versions to ensure builds pass.
+- Flatten project structure by moving apps/source/* to the root, simplifying directory organization.
+
+### Removed
+- Delete obsolete files and redundant source directories following project flattening.
+
+### Documentation
+- Merge AGENTS.md content and update documentation for project structure changes.
 
 ## 2026-07-09 .. 2026-07-15
 
 ### Added
-
 - Add @syrokomskyi/changelog-live package and integrate it into the HDRI export workflow and image app.
 - Add changelog-live integration to image app with support to auto-load .env from git root in CLI.
 - Implement discovery of cross-tree renames in changelog-live when initializing and updating configs.
@@ -13,20 +31,16 @@ All notable changes to the `changelog-live` project are documented here.
 - Move changelog configuration to per-project YAML files and introduce a prebuild hook.
 
 ### Changed
-
 - Replace em-dash with '..' in changelog-live week headers for improved readability.
 - Improve changelog-live parse regex to make square brackets optional for backward compatibility.
 - Remove square brackets from changelog date headers in changelog-live.
 
 ### Fixed
-
 - Remove dead prebuild task and address code review findings in changelog-live.
 - Remove backward compatibility for bracketed dates in changelog-live regex.
 
 ### Removed
-
 - Remove redundant changelog files from the HDRI app.
 
 ### Documentation
-
 - Document changelog-live init subcommand and add package to AGENTS.md.
