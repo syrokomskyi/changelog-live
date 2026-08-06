@@ -10,6 +10,7 @@ import {
   isWeekInProgress,
   formatDate,
   getWeekStart,
+  resolveTagToDate,
 } from "../git-collect.js";
 
 async function createTempRepo(): Promise<{ dir: string; cleanup: () => Promise<void> }> {
@@ -82,6 +83,27 @@ describe("integration: git collect + group", () => {
     expect(commits[0].message).toBe("New commit");
   });
 
+  it("collects commits with untilDate", async () => {
+    await commitFile(dir, "src/a.ts", "a", "Old commit", "2026-06-01");
+    await commitFile(dir, "src/b.ts", "b", "Mid commit", "2026-07-10");
+    await commitFile(dir, "src/c.ts", "c", "New commit", "2026-07-15");
+
+    const commits = collectCommits(dir, ["src"], undefined, "2026-07-12");
+    expect(commits).toHaveLength(2);
+    expect(commits[0].message).toBe("Old commit");
+    expect(commits[1].message).toBe("Mid commit");
+  });
+
+  it("collects commits with both sinceDate and untilDate", async () => {
+    await commitFile(dir, "src/a.ts", "a", "Old commit", "2026-06-01");
+    await commitFile(dir, "src/b.ts", "b", "Mid commit", "2026-07-10");
+    await commitFile(dir, "src/c.ts", "c", "New commit", "2026-07-15");
+
+    const commits = collectCommits(dir, ["src"], "2026-07-01", "2026-07-12");
+    expect(commits).toHaveLength(1);
+    expect(commits[0].message).toBe("Mid commit");
+  });
+
   it("gets first commit date", async () => {
     await commitFile(dir, "src/a.ts", "a", "First", "2026-05-01");
     await commitFile(dir, "src/b.ts", "b", "Second", "2026-07-15");
@@ -138,5 +160,34 @@ describe("integration: git collect + group", () => {
     const currentWeek = weeks.find((w) => w.weekStart === currentWeekStart);
     expect(currentWeek).toBeDefined();
     expect(isWeekInProgress(currentWeek!.weekEnd)).toBe(true);
+  });
+});
+
+describe("integration: resolveTagToDate", () => {
+  let dir: string;
+  let cleanup: () => Promise<void>;
+
+  beforeEach(async () => {
+    const result = await createTempRepo();
+    dir = result.dir;
+    cleanup = result.cleanup;
+  });
+
+  afterEach(async () => {
+    await cleanup();
+  });
+
+  it("resolves a tag to its commit date", async () => {
+    await commitFile(dir, "src/a.ts", "a", "Tagged commit", "2026-07-15");
+    const { execSync } = await import("node:child_process");
+    execSync("git tag v1.0.0", { cwd: dir, stdio: "pipe" });
+
+    const date = resolveTagToDate(dir, "v1.0.0");
+    expect(date).toBe("2026-07-15");
+  });
+
+  it("returns null for non-existent tag", async () => {
+    const date = resolveTagToDate(dir, "nonexistent-tag");
+    expect(date).toBeNull();
   });
 });
