@@ -7,11 +7,12 @@ AI-powered CHANGELOG.md generator that collects git history, groups changes by c
 ## Features
 
 - Collects git commits from any path(s) in a repository
-- Groups changes by week (configurable start day, default Thursday)
+- Groups changes by configurable periods (week, biweekly, month, day)
 - AI-generated professional changelog entries (OpenAI, Anthropic, Gemini)
 - Multi-language support with 100% sync between translations
 - Incremental updates — only processes new commits since last entry
-- Completed weeks only — in-progress (current) weeks are never written; re-running on the same week is idempotent
+- Completed periods only — in-progress periods are never written; re-running is idempotent
+- **CLI period control** — `--since`, `--until`, `--since-tag`, `--until-tag`, `--force` for manual period control
 - **Public changelog** — optional `CHANGELOG_PUBLIC.md` with client-facing categories, AI-generated titles, and summaries (independent incremental flow)
 - `init` subcommand — auto-discovers all historical git paths via rename tracing
 - CLI + library API
@@ -67,7 +68,7 @@ ai:
 output:
   dir: .
   filename: CHANGELOG
-maxHistoryWeeks: 2
+maxHistoryPeriods: 2
 sortOrder: desc
 publicChangelog: false
 ```
@@ -114,6 +115,44 @@ await generateChangelog({
   output: { dir: ".", filename: "CHANGELOG" },
   publicChangelog: true,
 });
+```
+
+## CLI flags
+
+The `changelog-live` CLI accepts the following options:
+
+| Flag                  | Description                                                        |
+| --------------------- | ------------------------------------------------------------------ |
+| `-c, --config <path>` | Path to `changelog.config.yaml` (default: `changelog.config.yaml`) |
+| `--since <date>`      | Collect commits since this date (YYYY-MM-DD)                       |
+| `--until <date>`      | Collect commits until this date (YYYY-MM-DD)                       |
+| `--since-tag <tag>`   | Resolve git tag to date and use as `--since`                       |
+| `--until-tag <tag>`   | Resolve git tag to date and use as `--until`                       |
+| `--force`             | Regenerate existing periods (in-progress periods still skipped)    |
+| `--no-merges`         | Exclude merge commits                                              |
+| `--dry-run`           | Run without writing files (output to stdout)                       |
+| `--verbose`           | Show detailed output (commits, AI prompts, timing)                 |
+| `--quiet`             | Suppress all output except errors                                  |
+| `--provider <name>`   | Override AI provider (openai, anthropic, gemini)                   |
+| `--model <name>`      | Override AI model                                                  |
+| `--output <path>`     | Override output directory or file path                             |
+
+### Period control
+
+- `--since` / `--until` limit the commit collection period to specific dates (YYYY-MM-DD).
+- `--since-tag` / `--until-tag` resolve git tags to dates via `git log -1 --format=%ad --date=short <tag>`, then use them as `--since` / `--until`.
+- `--force` regenerates existing changelog periods. In-progress periods are still skipped (safe default). This is useful when AI generated poor text and you want to regenerate.
+- CLI flags take priority over auto-detected `sinceDate` from the existing CHANGELOG.
+
+```bash
+# Generate changelog for a specific date range
+changelog-live --since 2026-07-01 --until 2026-07-31
+
+# Use git tags as period boundaries
+changelog-live --since-tag v1.0.0 --until-tag v2.0.0
+
+# Force regenerate all existing periods
+changelog-live --force
 ```
 
 ## `init` subcommand
