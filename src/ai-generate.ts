@@ -8,6 +8,7 @@
 </MODULE_CONTRACT>
 <CHANGE_SUMMARY>
   <item>Initial implementation of changelog generation module</item>
+  <item>ADR-0007: Added optional systemPrompt to GenerateOptions and PublicGenerateOptions for custom AI prompts via config</item>
   <item>ADR-0009: Added retry (up to 3 attempts) to generateChangelogSection() for invalid JSON responses</item>
 </CHANGE_SUMMARY>
 */
@@ -102,6 +103,7 @@ export interface GenerateOptions {
   model: string;
   language: string;
   week: WeekGroup;
+  systemPrompt?: string;
 }
 
 /**
@@ -111,7 +113,7 @@ export interface GenerateOptions {
  */
 export async function generateChangelogSection(opts: GenerateOptions): Promise<ChangelogSection> {
   const apiKey = getApiKey(opts.provider);
-  const systemPrompt = buildSystemPrompt(opts.language);
+  const systemPrompt = opts.systemPrompt ?? buildSystemPrompt(opts.language);
   const baseUserPrompt = formatCommitsForPrompt(opts.week.commits);
 
   let lastError: Error | null = null;
@@ -259,6 +261,7 @@ export interface PublicGenerateOptions {
   model: string;
   language: string;
   week: WeekGroup;
+  systemPrompt?: string;
 }
 
 /**
@@ -270,7 +273,7 @@ export async function generatePublicChangelogSection(
   opts: PublicGenerateOptions,
 ): Promise<PublicChangelogSection> {
   const apiKey = getApiKey(opts.provider);
-  const systemPrompt = buildPublicSystemPrompt(opts.language);
+  const systemPrompt = opts.systemPrompt ?? buildPublicSystemPrompt(opts.language);
   const baseUserPrompt = formatCommitsForPrompt(opts.week.commits);
 
   let lastRaw = "";

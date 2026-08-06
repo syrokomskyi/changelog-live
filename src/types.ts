@@ -7,6 +7,7 @@
 </MODULE_CONTRACT>
 <CHANGE_SUMMARY>
   <item>Initial definition of schemas and types for configuration and changelog management.</item>
+  <item>ADR-0007: Added optional systemPrompt field to AI_PROVIDER_SCHEMA for custom AI prompts</item>
 </CHANGE_SUMMARY>
 */
 
@@ -21,6 +22,9 @@ export type Provider = z.infer<typeof PROVIDER_SCHEMA>;
 
 export const WEEKDAY_SCHEMA = z.enum(["mon", "tue", "wed", "thu", "fri", "sat", "sun"]);
 export type Weekday = z.infer<typeof WEEKDAY_SCHEMA>;
+
+export const PERIOD_SCHEMA = z.enum(["day", "week", "biweekly", "month"]);
+export type Period = z.infer<typeof PERIOD_SCHEMA>;
 
 export const SORT_ORDER_SCHEMA = z.enum(["asc", "desc"]);
 export type SortOrder = z.infer<typeof SORT_ORDER_SCHEMA>;
@@ -61,7 +65,7 @@ export const CHANGELOG_CONFIG_SCHEMA = z.object({
     .default({ repoRoot: "." }),
   grouping: z
     .object({
-      period: z.literal("week").default("week"),
+      period: PERIOD_SCHEMA.default("week"),
       startDay: WEEKDAY_SCHEMA.default("thu"),
     })
     .default({ period: "week", startDay: "thu" }),
@@ -83,7 +87,7 @@ export const CHANGELOG_CONFIG_SCHEMA = z.object({
       filename: z.string().default("CHANGELOG"),
     })
     .default({ dir: ".", filename: "CHANGELOG" }),
-  maxHistoryWeeks: z.number().int().positive().optional(),
+  maxHistoryPeriods: z.number().int().positive().optional(),
   sortOrder: SORT_ORDER_SCHEMA.default("desc"),
   publicChangelog: z.boolean().default(false),
 });
@@ -108,12 +112,12 @@ export interface GitFileStat {
 }
 
 // ---------------------------------------------------------------------------
-// Week grouping
+// Period grouping
 // ---------------------------------------------------------------------------
 
-export interface WeekGroup {
-  weekStart: string;
-  weekEnd: string;
+export interface PeriodGroup {
+  periodStart: string;
+  periodEnd: string;
   commits: GitCommit[];
 }
 
@@ -142,8 +146,8 @@ export const CATEGORY_LABELS: Record<ChangelogCategory, string> = {
 };
 
 export interface ChangelogSection {
-  weekStart: string;
-  weekEnd: string;
+  periodStart: string;
+  periodEnd: string;
   categories: Record<ChangelogCategory, string[]>;
   commitMessage: string;
 }
@@ -158,8 +162,8 @@ export interface ParsedChangelog {
 }
 
 export interface ParsedSection {
-  weekStart: string;
-  weekEnd: string;
+  periodStart: string;
+  periodEnd: string;
   raw: string;
 }
 
@@ -186,8 +190,8 @@ export const PUBLIC_CATEGORY_LABELS: Record<PublicChangelogCategory, string> = {
 };
 
 export interface PublicChangelogSection {
-  weekStart: string;
-  weekEnd: string;
+  periodStart: string;
+  periodEnd: string;
   title: string;
   summary: string;
   categories: Record<PublicChangelogCategory, string[]>;
@@ -199,8 +203,8 @@ export interface ParsedPublicChangelog {
 }
 
 export interface ParsedPublicSection {
-  weekStart: string;
-  weekEnd: string;
+  periodStart: string;
+  periodEnd: string;
   title: string;
   summary: string;
   raw: string;
@@ -216,4 +220,15 @@ export interface PeriodOptions {
   sinceTag?: string;
   untilTag?: string;
   force?: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Generation options (ADR-0005)
+// ---------------------------------------------------------------------------
+
+export interface GenerateOptions extends PeriodOptions {
+  /** Skip file writes and output generated markdown to stdout instead. */
+  dryRun?: boolean;
+  /** Logger instance for leveled output (quiet/normal/verbose). Defaults to console. */
+  logger?: import("./logger.js").Logger;
 }

@@ -8,6 +8,7 @@
 </MODULE_CONTRACT>
 <CHANGE_SUMMARY>
   <item>Initial implementation of translation module with provider support.</item>
+  <item>ADR-0007: Added optional systemPrompt to TranslateOptions for custom translation prompts via config</item>
 </CHANGE_SUMMARY>
 */
 
@@ -26,6 +27,7 @@ export interface TranslateOptions {
   sourceLanguage: string;
   targetLanguage: string;
   markdown: string;
+  systemPrompt?: string;
 }
 
 /**
@@ -35,7 +37,8 @@ export interface TranslateOptions {
  */
 export async function translateChangelogSection(opts: TranslateOptions): Promise<string> {
   const apiKey = getApiKey(opts.provider);
-  const systemPrompt = buildTranslationPrompt(opts.sourceLanguage, opts.targetLanguage);
+  const systemPrompt =
+    opts.systemPrompt ?? buildTranslationPrompt(opts.sourceLanguage, opts.targetLanguage);
   const userPrompt = opts.markdown;
 
   const raw = await callAiProvider({

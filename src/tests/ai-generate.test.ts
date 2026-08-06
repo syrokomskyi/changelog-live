@@ -274,3 +274,60 @@ describe("generateChangelogSection retry", () => {
     expect(thirdCallArgs.userPrompt).toContain("FINAL ATTEMPT");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Custom systemPrompt tests (ADR-0007)
+// ---------------------------------------------------------------------------
+
+describe("generateChangelogSection custom systemPrompt", () => {
+  const week: WeekGroup = {
+    weekStart: "2026-07-16",
+    weekEnd: "2026-07-22",
+    commits: [
+      {
+        hash: "abc",
+        date: "2026-07-16",
+        message: "Add feature",
+        files: [{ path: "src/a.ts", additions: 5, deletions: 0 }],
+      },
+    ],
+  };
+
+  const validResponse = JSON.stringify({
+    categories: { added: ["Feature A"] },
+    commitMessage: "Add feature A",
+  });
+
+  beforeEach(() => {
+    callAiProviderMock.mockReset();
+  });
+
+  it("uses custom systemPrompt when provided", async () => {
+    callAiProviderMock.mockResolvedValue(validResponse);
+
+    await generateChangelogSection({
+      provider: "openai",
+      model: "gpt-4",
+      language: "en",
+      week,
+      systemPrompt: "You are a fintech changelog writer.",
+    });
+
+    const callArgs = callAiProviderMock.mock.calls[0][0];
+    expect(callArgs.systemPrompt).toBe("You are a fintech changelog writer.");
+  });
+
+  it("uses built-in prompt when systemPrompt is not provided", async () => {
+    callAiProviderMock.mockResolvedValue(validResponse);
+
+    await generateChangelogSection({
+      provider: "openai",
+      model: "gpt-4",
+      language: "en",
+      week,
+    });
+
+    const callArgs = callAiProviderMock.mock.calls[0][0];
+    expect(callArgs.systemPrompt).toContain("professional changelog author");
+  });
+});
