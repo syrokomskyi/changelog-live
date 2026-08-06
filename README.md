@@ -55,9 +55,15 @@ ai:
   generation:
     provider: openai
     model: gpt-4.1
+    systemPrompt: |
+      You are a technical writer for a fintech startup...
+      Use a casual but professional tone.
+      Group changes into: Features, Bug Fixes, Infrastructure.
   translation:
     provider: openai
     model: gpt-4.1
+    systemPrompt: |
+      You are a professional translator specializing in fintech terminology...
 output:
   dir: .
   filename: CHANGELOG
@@ -81,7 +87,7 @@ The public changelog uses the same `ai.generation` provider and model as the int
 
 ## API keys
 
-Set environment variables: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`. The CLI auto-loads `.env` from the git repo root.
+Set environment variables: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`. The CLI auto-loads `.env` from the git repo root, then from the current working directory (CWD `.env` takes priority).
 
 ## Library API
 
@@ -112,7 +118,11 @@ await generateChangelog({
 5. Recursively traces historical directories to catch files that existed in old paths but were deleted before renames.
 6. Writes `changelog.config.yaml` with all discovered paths and default settings.
 
-The `init` command reads `changelog.config.default.yaml` from the repo root (or nearest ancestor) for default settings. If missing, it falls back to built-in defaults and prints a message. Skips initialization if `changelog.config.yaml` already exists.
+The `init` command reads `changelog.config.default.yaml` from the repo root (or nearest ancestor) for default settings. If missing, it falls back to built-in defaults and prints a message. Skips initialization if `changelog.config.yaml` already exists — use `--force` (or `-f`) to overwrite the existing config:
+
+```bash
+changelog-live init --force
+```
 
 ## Changelog
 
