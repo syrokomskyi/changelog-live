@@ -253,7 +253,7 @@ describe("integration: commit filtering (ADR-0006)", () => {
     const { execSync } = await import("node:child_process");
     execSync("git checkout -b feature", { cwd: dir, stdio: "pipe" });
     await commitFile(dir, "src/c.ts", "c", "Add c on feature", "2026-07-18");
-    execSync("git checkout main", { cwd: dir, stdio: "pipe" });
+    execSync("git checkout master", { cwd: dir, stdio: "pipe" });
     execSync("git merge --no-ff feature -m \"Merge branch 'feature'\"", {
       cwd: dir,
       stdio: "pipe",
@@ -279,7 +279,7 @@ describe("integration: commit filtering (ADR-0006)", () => {
     const { execSync } = await import("node:child_process");
     execSync("git checkout -b feature", { cwd: dir, stdio: "pipe" });
     await commitFile(dir, "src/b.ts", "b", "Add b", "2026-07-17");
-    execSync("git checkout main", { cwd: dir, stdio: "pipe" });
+    execSync("git checkout master", { cwd: dir, stdio: "pipe" });
     execSync("git merge --no-ff feature -m \"Merge branch 'feature'\"", {
       cwd: dir,
       stdio: "pipe",
@@ -291,8 +291,11 @@ describe("integration: commit filtering (ADR-0006)", () => {
       excludePatterns: [],
     };
 
-    const commits = collectCommits(dir, ["src"], undefined, undefined, filter);
-    expect(commits.length).toBeGreaterThanOrEqual(3);
+    const commitsWithFilter = collectCommits(dir, ["src"], undefined, undefined, filter);
+    const commitsWithoutFilter = collectCommits(dir, ["src"]);
+    expect(commitsWithFilter).toHaveLength(commitsWithoutFilter.length);
+    expect(commitsWithFilter.map((c) => c.message)).toContain("Add a");
+    expect(commitsWithFilter.map((c) => c.message)).toContain("Add b");
   });
 
   it("excludes commits by excluded authors", async () => {
