@@ -30,7 +30,7 @@ This is a **package** workspace. Expose stable typed APIs. Do not import from ap
 | Script | Command |
 | --- | --- |
 | `build` | `pnpm exec tsc -p tsconfig.lib.json` |
-| `changelog` | `pnpm exec tsx -C @syrokomskyi/source src/cli.ts` |
+| `changelog` | `pnpm exec tsx src/cli.ts` |
 | `lint` | `pnpm exec eslint src --ext .ts` |
 | `test` | `pnpm exec vitest run` |
 | `typecheck` | `pnpm exec tsc -p tsconfig.lib.json --noEmit` |
