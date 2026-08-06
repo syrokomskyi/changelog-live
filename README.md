@@ -85,6 +85,15 @@ When set to `true`, the tool generates an additional `CHANGELOG_PUBLIC.md` along
 
 The public changelog uses the same `ai.generation` provider and model as the internal changelog. No `commitMessage` is generated from the public call (the internal call provides it for export workflows).
 
+### Custom AI prompts
+
+Both `ai.generation` and `ai.translation` accept an optional `systemPrompt` field. When provided, it replaces the built-in system prompt for that function. When omitted, the built-in prompt is used.
+
+- **`ai.generation.systemPrompt`** — replaces the built-in prompt for both internal and public changelog generation. The custom prompt must instruct the AI to return the same JSON structure (categories + commitMessage for internal; title + summary + categories for public).
+- **`ai.translation.systemPrompt`** — replaces the built-in translation prompt. The custom prompt must instruct the AI to return only translated markdown without preamble.
+
+Language, week dates, and commit data are passed in the user prompt (formed by code), not in the system prompt. This keeps the system prompt static and reusable across runs.
+
 ## API keys
 
 Set environment variables: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`. The CLI auto-loads `.env` from the git repo root, then from the current working directory (CWD `.env` takes priority).
