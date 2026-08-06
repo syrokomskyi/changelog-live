@@ -5,9 +5,9 @@ import {
   getWeekEnd,
   formatDate,
   parseDate,
-  groupCommitsByWeek,
-  takeLastWeeks,
-  isWeekInProgress,
+  groupCommits,
+  takeLastPeriods,
+  isPeriodInProgress,
 } from "../git-collect.js";
 import type { GitCommit } from "../types.js";
 
@@ -72,7 +72,7 @@ describe("formatDate / parseDate", () => {
   });
 });
 
-describe("groupCommitsByWeek", () => {
+describe("groupCommits", () => {
   function makeCommit(date: string, message: string): GitCommit {
     return { hash: `hash-${date}`, date, message, files: [] };
   }
@@ -85,54 +85,54 @@ describe("groupCommitsByWeek", () => {
       makeCommit("2026-07-23", "commit on next Thursday"),
     ];
 
-    const weeks = groupCommitsByWeek(commits, "thu");
+    const weeks = groupCommits(commits, "week", "thu");
     expect(weeks).toHaveLength(2);
-    expect(weeks[0].weekStart).toBe("2026-07-16");
-    expect(weeks[0].weekEnd).toBe("2026-07-22");
+    expect(weeks[0].periodStart).toBe("2026-07-16");
+    expect(weeks[0].periodEnd).toBe("2026-07-22");
     expect(weeks[0].commits).toHaveLength(3);
-    expect(weeks[1].weekStart).toBe("2026-07-23");
+    expect(weeks[1].periodStart).toBe("2026-07-23");
     expect(weeks[1].commits).toHaveLength(1);
   });
 
   it("returns empty array for no commits", () => {
-    expect(groupCommitsByWeek([], "thu")).toEqual([]);
+    expect(groupCommits([], "week", "thu")).toEqual([]);
   });
 
   it("sorts weeks chronologically", () => {
     const commits = [makeCommit("2026-07-23", "later"), makeCommit("2026-07-16", "earlier")];
-    const weeks = groupCommitsByWeek(commits, "thu");
-    expect(weeks[0].weekStart).toBe("2026-07-16");
-    expect(weeks[1].weekStart).toBe("2026-07-23");
+    const weeks = groupCommits(commits, "week", "thu");
+    expect(weeks[0].periodStart).toBe("2026-07-16");
+    expect(weeks[1].periodStart).toBe("2026-07-23");
   });
 });
 
-describe("takeLastWeeks", () => {
-  it("returns last N weeks", () => {
-    const weeks = [
-      { weekStart: "2026-06-18", weekEnd: "2026-06-24", commits: [] },
-      { weekStart: "2026-06-25", weekEnd: "2026-07-01", commits: [] },
-      { weekStart: "2026-07-02", weekEnd: "2026-07-08", commits: [] },
-      { weekStart: "2026-07-09", weekEnd: "2026-07-15", commits: [] },
+describe("takeLastPeriods", () => {
+  it("returns last N periods", () => {
+    const periods = [
+      { periodStart: "2026-06-18", periodEnd: "2026-06-24", commits: [] },
+      { periodStart: "2026-06-25", periodEnd: "2026-07-01", commits: [] },
+      { periodStart: "2026-07-02", periodEnd: "2026-07-08", commits: [] },
+      { periodStart: "2026-07-09", periodEnd: "2026-07-15", commits: [] },
     ];
-    const result = takeLastWeeks(weeks, 2);
+    const result = takeLastPeriods(periods, 2);
     expect(result).toHaveLength(2);
-    expect(result[0].weekStart).toBe("2026-07-02");
-    expect(result[1].weekStart).toBe("2026-07-09");
+    expect(result[0].periodStart).toBe("2026-07-02");
+    expect(result[1].periodStart).toBe("2026-07-09");
   });
 
-  it("returns all weeks when n is 0 or negative", () => {
-    const weeks = [{ weekStart: "2026-07-02", weekEnd: "2026-07-08", commits: [] }];
-    expect(takeLastWeeks(weeks, 0)).toHaveLength(1);
+  it("returns all periods when n is 0 or negative", () => {
+    const periods = [{ periodStart: "2026-07-02", periodEnd: "2026-07-08", commits: [] }];
+    expect(takeLastPeriods(periods, 0)).toHaveLength(1);
   });
 });
 
-describe("isWeekInProgress", () => {
+describe("isPeriodInProgress", () => {
   it("returns true for today or future", () => {
     const today = formatDate(new Date());
-    expect(isWeekInProgress(today)).toBe(true);
+    expect(isPeriodInProgress(today)).toBe(true);
   });
 
   it("returns false for past dates", () => {
-    expect(isWeekInProgress("2020-01-01")).toBe(false);
+    expect(isPeriodInProgress("2020-01-01")).toBe(false);
   });
 });

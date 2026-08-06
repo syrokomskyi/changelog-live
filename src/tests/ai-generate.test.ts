@@ -23,6 +23,7 @@ describe("formatCommitsForPrompt", () => {
       {
         hash: "abc123",
         date: "2026-07-16",
+        author: "Test",
         message: "Add feature",
         files: [
           { path: "src/main.ts", additions: 10, deletions: 2 },
@@ -44,12 +45,14 @@ describe("formatCommitsForPrompt", () => {
       {
         hash: "aaa",
         date: "2026-07-16",
+        author: "Test",
         message: "First",
         files: [{ path: "a.ts", additions: 1, deletions: 0 }],
       },
       {
         hash: "bbb",
         date: "2026-07-17",
+        author: "Test",
         message: "Second",
         files: [{ path: "b.ts", additions: 2, deletions: 1 }],
       },
@@ -66,6 +69,7 @@ describe("formatCommitsForPrompt", () => {
       {
         hash: "empty",
         date: "2026-07-16",
+        author: "Test",
         message: "Empty commit",
         files: [],
       },

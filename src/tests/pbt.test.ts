@@ -6,9 +6,9 @@ import {
   getWeekEnd,
   formatDate,
   parseDate,
-  groupCommitsByWeek,
-  takeLastWeeks,
-  isWeekInProgress,
+  groupCommits,
+  takeLastPeriods,
+  isPeriodInProgress,
 } from "../git-collect.js";
 import {
   renderSection,
@@ -40,6 +40,7 @@ const arbDateString = arbValidDate.map((d) => formatDate(d));
 const arbGitCommit = fc.record({
   hash: fc.string({ minLength: 1, maxLength: 40 }),
   date: arbDateString,
+  author: fc.string({ minLength: 1, maxLength: 50 }),
   message: fc.string({ minLength: 1, maxLength: 100 }),
   files: fc.array(
     fc.record({
@@ -55,8 +56,8 @@ const arbCategoryEntries = fc.array(fc.string({ minLength: 1, maxLength: 80 }), 
 });
 
 const arbChangelogSection = fc.record({
-  weekStart: arbDateString,
-  weekEnd: arbDateString,
+  periodStart: arbDateString,
+  periodEnd: arbDateString,
   categories: fc.record({
     added: arbCategoryEntries,
     changed: arbCategoryEntries,
@@ -162,45 +163,45 @@ describe("PBT: getWeekEnd invariants", () => {
 // Week grouping properties
 // ---------------------------------------------------------------------------
 
-describe("PBT: groupCommitsByWeek invariants", () => {
-  it("weeks are in chronological order", () => {
+describe("PBT: groupCommits invariants", () => {
+  it("periods are in chronological order", () => {
     fc.assert(
       fc.property(fc.array(arbGitCommit, { maxLength: 50 }), arbWeekday, (commits, startDay) => {
-        const weeks = groupCommitsByWeek(commits, startDay);
-        for (let i = 1; i < weeks.length; i++) {
-          expect(weeks[i].weekStart.localeCompare(weeks[i - 1].weekStart)).toBeGreaterThanOrEqual(
-            0,
-          );
+        const periods = groupCommits(commits, "week", startDay);
+        for (let i = 1; i < periods.length; i++) {
+          expect(
+            periods[i].periodStart.localeCompare(periods[i - 1].periodStart),
+          ).toBeGreaterThanOrEqual(0);
         }
       }),
     );
   });
 
-  it("every commit appears in exactly one week (partition)", () => {
+  it("every commit appears in exactly one period (partition)", () => {
     fc.assert(
       fc.property(fc.array(arbGitCommit, { maxLength: 50 }), arbWeekday, (commits, startDay) => {
-        const weeks = groupCommitsByWeek(commits, startDay);
-        const totalCommitsInWeeks = weeks.reduce((sum, w) => sum + w.commits.length, 0);
-        expect(totalCommitsInWeeks).toBe(commits.length);
+        const periods = groupCommits(commits, "week", startDay);
+        const totalCommitsInPeriods = periods.reduce((sum: number, w) => sum + w.commits.length, 0);
+        expect(totalCommitsInPeriods).toBe(commits.length);
       }),
     );
   });
 
-  it("no two weeks share the same weekStart", () => {
+  it("no two periods share the same periodStart", () => {
     fc.assert(
       fc.property(fc.array(arbGitCommit, { maxLength: 50 }), arbWeekday, (commits, startDay) => {
-        const weeks = groupCommitsByWeek(commits, startDay);
-        const weekStarts = weeks.map((w) => w.weekStart);
-        const unique = new Set(weekStarts);
-        expect(unique.size).toBe(weekStarts.length);
+        const periods = groupCommits(commits, "week", startDay);
+        const periodStarts = periods.map((w) => w.periodStart);
+        const unique = new Set(periodStarts);
+        expect(unique.size).toBe(periodStarts.length);
       }),
     );
   });
 
-  it("empty commits produces empty weeks", () => {
+  it("empty commits produces empty periods", () => {
     fc.assert(
       fc.property(arbWeekday, (startDay) => {
-        expect(groupCommitsByWeek([], startDay)).toEqual([]);
+        expect(groupCommits([], "week", startDay)).toEqual([]);
       }),
     );
   });
@@ -210,40 +211,40 @@ describe("PBT: groupCommitsByWeek invariants", () => {
 // takeLastWeeks properties
 // ---------------------------------------------------------------------------
 
-describe("PBT: takeLastWeeks invariants", () => {
-  const arbWeeks = fc.array(
+describe("PBT: takeLastPeriods invariants", () => {
+  const arbPeriods = fc.array(
     fc.record({
-      weekStart: fc.string({ minLength: 10, maxLength: 10 }),
-      weekEnd: fc.string({ minLength: 10, maxLength: 10 }),
+      periodStart: fc.string({ minLength: 10, maxLength: 10 }),
+      periodEnd: fc.string({ minLength: 10, maxLength: 10 }),
       commits: fc.constant<GitCommit[]>([]),
     }),
     { maxLength: 20 },
   );
 
-  it("returns at most n weeks for n > 0", () => {
+  it("returns at most n periods for n > 0", () => {
     fc.assert(
-      fc.property(arbWeeks, fc.integer({ min: 1, max: 100 }), (weeks, n) => {
-        const result = takeLastWeeks(weeks, n);
-        expect(result.length).toBe(Math.min(weeks.length, n));
+      fc.property(arbPeriods, fc.integer({ min: 1, max: 100 }), (periods, n) => {
+        const result = takeLastPeriods(periods, n);
+        expect(result.length).toBe(Math.min(periods.length, n));
       }),
     );
   });
 
-  it("returns all weeks for n <= 0", () => {
+  it("returns all periods for n <= 0", () => {
     fc.assert(
-      fc.property(arbWeeks, fc.integer({ min: -100, max: 0 }), (weeks, n) => {
-        const result = takeLastWeeks(weeks, n);
-        expect(result.length).toBe(weeks.length);
+      fc.property(arbPeriods, fc.integer({ min: -100, max: 0 }), (periods, n) => {
+        const result = takeLastPeriods(periods, n);
+        expect(result.length).toBe(periods.length);
       }),
     );
   });
 
   it("result is a suffix of the input", () => {
     fc.assert(
-      fc.property(arbWeeks, fc.integer({ min: 1, max: 100 }), (weeks, n) => {
-        const result = takeLastWeeks(weeks, n);
+      fc.property(arbPeriods, fc.integer({ min: 1, max: 100 }), (periods, n) => {
+        const result = takeLastPeriods(periods, n);
         if (result.length > 0) {
-          expect(result[0]).toBe(weeks[weeks.length - result.length]);
+          expect(result[0]).toBe(periods[periods.length - result.length]);
         }
       }),
     );
@@ -254,11 +255,11 @@ describe("PBT: takeLastWeeks invariants", () => {
 // isWeekInProgress properties
 // ---------------------------------------------------------------------------
 
-describe("PBT: isWeekInProgress invariants", () => {
+describe("PBT: isPeriodInProgress invariants", () => {
   it("any past date is not in progress", () => {
     fc.assert(
       fc.property(fc.date({ min: new Date(2000, 0, 1), max: new Date(2010, 11, 31) }), (d) => {
-        expect(isWeekInProgress(formatDate(d))).toBe(false);
+        expect(isPeriodInProgress(formatDate(d))).toBe(false);
       }),
     );
   });
@@ -269,30 +270,30 @@ describe("PBT: isWeekInProgress invariants", () => {
 // ---------------------------------------------------------------------------
 
 describe("PBT: renderSection / parseChangelog roundtrip", () => {
-  it("parseChangelog(renderSection(section)) recovers weekStart and weekEnd", () => {
+  it("parseChangelog(renderSection(section)) recovers periodStart and periodEnd", () => {
     fc.assert(
       fc.property(arbChangelogSection, (section) => {
         const md = renderSection(section);
         const parsed = parseChangelog(`# Changelog\n\n${md}`);
         expect(parsed.sections.length).toBe(1);
-        expect(parsed.sections[0].weekStart).toBe(section.weekStart);
-        expect(parsed.sections[0].weekEnd).toBe(section.weekEnd);
+        expect(parsed.sections[0].periodStart).toBe(section.periodStart);
+        expect(parsed.sections[0].periodEnd).toBe(section.periodEnd);
       }),
     );
   });
 
-  it("parseChangelog(renderFullChangelog(sections)) recovers all section week ranges", () => {
+  it("parseChangelog(renderFullChangelog(sections)) recovers all section period ranges", () => {
     fc.assert(
       fc.property(
-        fc.uniqueArray(arbChangelogSection, { maxLength: 10, selector: (s) => s.weekStart }),
+        fc.uniqueArray(arbChangelogSection, { maxLength: 10, selector: (s) => s.periodStart }),
         (sections) => {
           const md = renderFullChangelog(sections, "desc");
           const parsed = parseChangelog(md);
           expect(parsed.sections.length).toBe(sections.length);
 
-          // Each section's weekStart should appear in parsed sections
+          // Each section's periodStart should appear in parsed sections
           for (const s of sections) {
-            const found = parsed.sections.find((ps) => ps.weekStart === s.weekStart);
+            const found = parsed.sections.find((ps) => ps.periodStart === s.periodStart);
             expect(found).toBeDefined();
           }
         },
@@ -320,51 +321,51 @@ describe("PBT: renderSection / parseChangelog roundtrip", () => {
 // ---------------------------------------------------------------------------
 
 describe("PBT: mergeSections invariants", () => {
-  it("no duplicate weekStart after merge", () => {
+  it("no duplicate periodStart after merge", () => {
     fc.assert(
       fc.property(
-        fc.uniqueArray(arbChangelogSection, { maxLength: 5, selector: (s) => s.weekStart }),
-        fc.uniqueArray(arbChangelogSection, { maxLength: 5, selector: (s) => s.weekStart }),
+        fc.uniqueArray(arbChangelogSection, { maxLength: 5, selector: (s) => s.periodStart }),
+        fc.uniqueArray(arbChangelogSection, { maxLength: 5, selector: (s) => s.periodStart }),
         (existing, newSections) => {
           const parsedExisting: ParsedChangelog = {
             header: "# Changelog",
             sections: existing.map((s) => ({
-              weekStart: s.weekStart,
-              weekEnd: s.weekEnd,
+              periodStart: s.periodStart,
+              periodEnd: s.periodEnd,
               raw: renderSection(s),
             })),
           };
 
           const merged = mergeSections(parsedExisting, newSections);
-          const weekStarts = merged.map((s) => s.weekStart);
-          const unique = new Set(weekStarts);
-          expect(unique.size).toBe(weekStarts.length);
+          const periodStarts = merged.map((s) => s.periodStart);
+          const unique = new Set(periodStarts);
+          expect(unique.size).toBe(periodStarts.length);
         },
       ),
     );
   });
 
-  it("new sections replace existing ones with same weekStart", () => {
+  it("new sections replace existing ones with same periodStart", () => {
     fc.assert(
       fc.property(
-        fc.uniqueArray(arbChangelogSection, { maxLength: 3, selector: (s) => s.weekStart }),
-        fc.uniqueArray(arbChangelogSection, { maxLength: 3, selector: (s) => s.weekStart }),
+        fc.uniqueArray(arbChangelogSection, { maxLength: 3, selector: (s) => s.periodStart }),
+        fc.uniqueArray(arbChangelogSection, { maxLength: 3, selector: (s) => s.periodStart }),
         (existing, newSections) => {
           const parsedExisting: ParsedChangelog = {
             header: "# Changelog",
             sections: existing.map((s) => ({
-              weekStart: s.weekStart,
-              weekEnd: s.weekEnd,
+              periodStart: s.periodStart,
+              periodEnd: s.periodEnd,
               raw: renderSection(s),
             })),
           };
 
           const merged = mergeSections(parsedExisting, newSections);
 
-          // For every new section, if its weekStart existed before, the merged
+          // For every new section, if its periodStart existed before, the merged
           // version should have the new categories, not the old ones
           for (const newSec of newSections) {
-            const mergedSec = merged.find((s) => s.weekStart === newSec.weekStart);
+            const mergedSec = merged.find((s) => s.periodStart === newSec.periodStart);
             if (mergedSec) {
               expect(mergedSec.categories.added).toEqual(newSec.categories.added);
               expect(mergedSec.commitMessage).toBe(newSec.commitMessage);
@@ -381,13 +382,13 @@ describe("PBT: mergeSections invariants", () => {
 // ---------------------------------------------------------------------------
 
 describe("PBT: getLastSection invariants", () => {
-  it("returns section with max weekStart", () => {
+  it("returns section with max periodStart", () => {
     fc.assert(
       fc.property(
         fc.array(
           fc.record({
-            weekStart: fc.string({ minLength: 10, maxLength: 10 }),
-            weekEnd: fc.string({ minLength: 10, maxLength: 10 }),
+            periodStart: fc.string({ minLength: 10, maxLength: 10 }),
+            periodEnd: fc.string({ minLength: 10, maxLength: 10 }),
             raw: fc.constant(""),
           }),
           { minLength: 1, maxLength: 20 },
@@ -396,11 +397,11 @@ describe("PBT: getLastSection invariants", () => {
           const parsed: ParsedChangelog = { header: "", sections };
           const last = getLastSection(parsed);
           expect(last).not.toBeNull();
-          const maxWeekStart = sections.reduce(
-            (max, s) => (s.weekStart > max ? s.weekStart : max),
-            sections[0].weekStart,
+          const maxPeriodStart = sections.reduce(
+            (max, s) => (s.periodStart > max ? s.periodStart : max),
+            sections[0].periodStart,
           );
-          expect(last!.weekStart).toBe(maxWeekStart);
+          expect(last!.periodStart).toBe(maxPeriodStart);
         },
       ),
     );

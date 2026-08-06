@@ -3,18 +3,25 @@
 <purpose>Collect and analyze git commit data by week</purpose>
 <non-goals>
   <item>Provide detailed commit message analysis</item>
-  <item>Handle non-git version control systems</item>
 </non-goals>
 </MODULE_CONTRACT>
 <CHANGE_SUMMARY>
   <item>Initial implementation of git commit analysis</item>
+  <item>ADR-0006: added author field to git log format, filter parameter to collectCommits, post-collection filtering for merges/authors/patterns</item>
   <item>ADR-0004: added untilDate parameter to collectCommits() and resolveTagToDate() helper</item>
 </CHANGE_SUMMARY>
 */
 
 import { execSync } from "node:child_process";
 
-import type { GitCommit, GitFileStat, WeekGroup, Weekday } from "./types.js";
+import type {
+  CommitFilter,
+  GitCommit,
+  GitFileStat,
+  PeriodGroup,
+  Period,
+  Weekday,
+} from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Weekday helpers
@@ -91,18 +98,21 @@ export function collectCommits(
   paths: string[],
   sinceDate?: string,
   untilDate?: string,
+  filter?: CommitFilter,
 ): GitCommit[] {
   const pathArgs = paths.length > 0 ? ["--", ...paths] : [];
   const sinceArg = sinceDate ? [`--since="${sinceDate} 00:00:00"`] : [];
   const untilArg = untilDate ? [`--until="${untilDate} 23:59:59"`] : [];
+  const noMergesArg = filter?.excludeMerges ? ["--no-merges"] : [];
 
-  const format = `%H${FIELD_SEP}%ad${FIELD_SEP}%s${FIELD_SEP}${RECORD_SEP}`;
+  const format = `%H${FIELD_SEP}%ad${FIELD_SEP}%an${FIELD_SEP}%s${FIELD_SEP}${RECORD_SEP}`;
   const args = [
     "log",
     `--format=${format}`,
     `--date=format:%Y-%m-%d`,
     ...sinceArg,
     ...untilArg,
+    ...noMergesArg,
     ...pathArgs,
   ];
 
@@ -112,7 +122,13 @@ export function collectCommits(
     stdio: ["pipe", "pipe", "pipe"],
   });
 
-  return parseCommits(output, repoRoot);
+  let commits = parseCommits(output, repoRoot);
+
+  if (filter) {
+    commits = applyCommitFilter(commits, filter);
+  }
+
+  return commits;
 }
 
 /**
@@ -164,13 +180,14 @@ function parseCommits(output: string, repoRoot: string): GitCommit[] {
 
   for (const record of records) {
     const parts = record.split(FIELD_SEP);
-    if (parts.length < 3) continue;
+    if (parts.length < 4) continue;
     const hash = parts[0].trim();
     const date = parts[1].trim();
-    const message = parts[2].trim();
+    const author = parts[2].trim();
+    const message = parts[3].trim();
 
     const files = getCommitFiles(repoRoot, hash);
-    commits.push({ hash, date, message, files });
+    commits.push({ hash, date, author, message, files });
   }
 
   return commits;
@@ -211,57 +228,174 @@ function getCommitFiles(repoRoot: string, hash: string): GitFileStat[] {
 }
 
 // ---------------------------------------------------------------------------
-// Week grouping
+// Commit filtering (ADR-0006)
 // ---------------------------------------------------------------------------
 
 /**
- * Group commits by week (startDay-based).
- * Returns weeks in chronological order (oldest first).
+ * Apply post-collection commit filtering.
+ * excludeMerges is handled at git log level (--no-merges), but this function
+ * handles excludeAuthors and excludePatterns as post-collection filters.
  */
-export function groupCommitsByWeek(commits: GitCommit[], startDay: Weekday): WeekGroup[] {
-  const weekMap = new Map<string, WeekGroup>();
+function applyCommitFilter(commits: GitCommit[], filter: CommitFilter): GitCommit[] {
+  const excludeAuthors = new Set(filter.excludeAuthors);
+  const excludePatterns = filter.excludePatterns.map((p) => new RegExp(p));
+
+  return commits.filter((commit) => {
+    if (excludeAuthors.has(commit.author)) return false;
+    for (const pattern of excludePatterns) {
+      if (pattern.test(commit.message)) return false;
+    }
+    return true;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Period grouping
+// ---------------------------------------------------------------------------
+
+/**
+ * Calculate the start of the biweekly period for a given date.
+ * Biweekly periods are 14 days long, aligned to startDay.
+ * Even/odd weeks are determined from the Unix epoch (1970-01-01).
+ */
+function getBiweeklyStart(date: Date, startDay: Weekday): Date {
+  const weekStart = getWeekStart(date, startDay);
+  const daysSinceEpoch = Math.floor(weekStart.getTime() / (1000 * 60 * 60 * 24));
+  const weekIndex = Math.floor(daysSinceEpoch / 7);
+  if (weekIndex % 2 !== 0) {
+    const result = new Date(weekStart);
+    result.setDate(result.getDate() - 7);
+    return result;
+  }
+  return weekStart;
+}
+
+/**
+ * Calculate the start of the month for a given date.
+ */
+function getMonthStart(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+/**
+ * Calculate the end of the month for a given date (last day at 23:59:59.999).
+ */
+function getMonthEnd(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999);
+}
+
+/**
+ * Calculate the period start for a given date, based on the period type and configured start day.
+ */
+export function getPeriodStart(date: Date, period: Period, startDay: Weekday): Date {
+  switch (period) {
+    case "day":
+      return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    case "week":
+      return getWeekStart(date, startDay);
+    case "biweekly":
+      return getBiweeklyStart(date, startDay);
+    case "month":
+      return getMonthStart(date);
+  }
+}
+
+/**
+ * Calculate the period end (23:59:59.999) based on the period start and type.
+ */
+export function getPeriodEnd(periodStart: Date, period: Period): Date {
+  switch (period) {
+    case "day":
+      return new Date(
+        periodStart.getFullYear(),
+        periodStart.getMonth(),
+        periodStart.getDate(),
+        23,
+        59,
+        59,
+        999,
+      );
+    case "week":
+      return getWeekEnd(periodStart);
+    case "biweekly": {
+      const end = new Date(periodStart);
+      end.setDate(end.getDate() + 13);
+      end.setHours(23, 59, 59, 999);
+      return end;
+    }
+    case "month":
+      return getMonthEnd(periodStart);
+  }
+}
+
+/**
+ * Calculate the group key for a commit date based on the period type.
+ */
+function getGroupKey(date: Date, period: Period, startDay: Weekday): string {
+  switch (period) {
+    case "day":
+      return formatDate(date);
+    case "week":
+      return formatDate(getWeekStart(date, startDay));
+    case "biweekly":
+      return formatDate(getBiweeklyStart(date, startDay));
+    case "month":
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+  }
+}
+
+/**
+ * Group commits by the configured period (day, week, biweekly, month).
+ * Returns periods in chronological order (oldest first).
+ */
+export function groupCommits(
+  commits: GitCommit[],
+  period: Period,
+  startDay: Weekday,
+): PeriodGroup[] {
+  const groupMap = new Map<string, PeriodGroup>();
 
   for (const commit of commits) {
     const commitDate = parseDate(commit.date);
-    const weekStart = getWeekStart(commitDate, startDay);
-    const weekKey = formatDate(weekStart);
+    const groupKey = getGroupKey(commitDate, period, startDay);
 
-    let group = weekMap.get(weekKey);
+    let group = groupMap.get(groupKey);
     if (!group) {
-      const weekEnd = getWeekEnd(weekStart);
+      const periodStartDate = getPeriodStart(commitDate, period, startDay);
+      const periodEndDate = getPeriodEnd(periodStartDate, period);
       group = {
-        weekStart: weekKey,
-        weekEnd: formatDate(weekEnd),
+        periodStart: formatDate(periodStartDate),
+        periodEnd: formatDate(periodEndDate),
         commits: [],
       };
-      weekMap.set(weekKey, group);
+      groupMap.set(groupKey, group);
     }
     group.commits.push(commit);
   }
 
-  return Array.from(weekMap.values()).sort((a, b) => a.weekStart.localeCompare(b.weekStart));
+  return Array.from(groupMap.values()).sort((a, b) => a.periodStart.localeCompare(b.periodStart));
 }
 
 /**
- * Filter week groups to only the last N weeks (from the end).
+ * Filter period groups to only the last N periods (from the end).
  */
-export function takeLastWeeks(weeks: WeekGroup[], n: number): WeekGroup[] {
-  if (n <= 0) return weeks;
-  return weeks.slice(-n);
+export function takeLastPeriods(periods: PeriodGroup[], n: number): PeriodGroup[] {
+  if (n <= 0) return periods;
+  return periods.slice(-n);
 }
 
 /**
- * Get the current week start date.
+ * Get the current period start date.
  */
-export function getCurrentWeekStart(startDay: Weekday): string {
-  return formatDate(getWeekStart(new Date(), startDay));
+export function getCurrentPeriodStart(period: Period, startDay: Weekday): string {
+  return formatDate(getPeriodStart(new Date(), period, startDay));
 }
 
 /**
- * Check if a week is still in progress (week end date is today or in the future).
+ * Check if a period is still in progress (period end date is today or in the future).
  */
-export function isWeekInProgress(weekEnd: string): boolean {
-  const end = parseDate(weekEnd);
+export function isPeriodInProgress(periodEnd: string): boolean {
+  const end = parseDate(periodEnd);
   const now = new Date();
   now.setHours(0, 0, 0, 0);
   return end >= now;
