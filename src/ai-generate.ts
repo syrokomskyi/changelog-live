@@ -8,6 +8,7 @@
 </MODULE_CONTRACT>
 <CHANGE_SUMMARY>
   <item>Initial implementation of changelog generation module</item>
+  <item>ADR-0009: Added retry (up to 3 attempts) to generateChangelogSection() for invalid JSON responses</item>
 </CHANGE_SUMMARY>
 */
 
@@ -94,6 +95,8 @@ const RESPONSE_SCHEMA = {
 // AI generation
 // ---------------------------------------------------------------------------
 
+const MAX_RETRIES = 3;
+
 export interface GenerateOptions {
   provider: Provider;
   model: string;
@@ -103,22 +106,54 @@ export interface GenerateOptions {
 
 /**
  * Generate a changelog section for a week's worth of commits using AI.
- * Throws if the API key is missing or the API call fails.
+ * Uses retry (up to 3 attempts) if the AI returns invalid JSON.
+ * Throws if the API key is missing or all attempts fail.
  */
 export async function generateChangelogSection(opts: GenerateOptions): Promise<ChangelogSection> {
   const apiKey = getApiKey(opts.provider);
   const systemPrompt = buildSystemPrompt(opts.language);
-  const userPrompt = formatCommitsForPrompt(opts.week.commits);
+  const baseUserPrompt = formatCommitsForPrompt(opts.week.commits);
 
-  const raw = await callAiProvider({
-    provider: opts.provider,
-    model: opts.model,
-    apiKey,
-    systemPrompt,
-    userPrompt,
-    schema: RESPONSE_SCHEMA,
-  });
-  return parseGenerationResponse(raw, opts.week);
+  let lastError: Error | null = null;
+  let lastRaw = "";
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    let userPrompt = baseUserPrompt;
+
+    if (attempt === 2) {
+      userPrompt =
+        baseUserPrompt +
+        "\n\n---\nYour previous response was not valid JSON. Please return valid JSON with the exact structure requested.";
+    } else if (attempt === 3) {
+      userPrompt =
+        baseUserPrompt +
+        "\n\n---\nFINAL ATTEMPT: return valid JSON with the exact structure requested.";
+    }
+
+    const raw = await callAiProvider({
+      provider: opts.provider,
+      model: opts.model,
+      apiKey,
+      systemPrompt,
+      userPrompt,
+      schema: RESPONSE_SCHEMA,
+    });
+    lastRaw = raw;
+
+    try {
+      return parseGenerationResponse(raw, opts.week);
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      console.log(
+        `changelog-live: internal section parse error (attempt ${attempt}/${MAX_RETRIES}), retrying...`,
+      );
+    }
+  }
+
+  throw new Error(
+    `AI failed to produce valid changelog JSON after ${MAX_RETRIES} attempts. ` +
+      `Last error: ${lastError?.message ?? "unknown"}. Last response: ${lastRaw.slice(0, 300)}`,
+  );
 }
 
 // ---------------------------------------------------------------------------

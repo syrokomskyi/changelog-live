@@ -76,7 +76,7 @@
   "peerDependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
     "@google/generative-ai": "^0.24.1",
-    "openai": "^6.46.0"
+    "openai": "^7.0.0"
   },
   "peerDependenciesMeta": {
     "@anthropic-ai/sdk": {

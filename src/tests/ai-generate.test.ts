@@ -1,7 +1,21 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
-import { formatCommitsForPrompt, parseGenerationResponse } from "../ai-generate.js";
+import {
+  formatCommitsForPrompt,
+  parseGenerationResponse,
+  generateChangelogSection,
+} from "../ai-generate.js";
 import type { GitCommit, WeekGroup } from "../types.js";
+
+vi.mock("../config.js", () => ({
+  getApiKey: () => "test-key",
+}));
+
+const callAiProviderMock = vi.hoisted(() => vi.fn());
+
+vi.mock("../ai-provider.js", () => ({
+  callAiProvider: callAiProviderMock,
+}));
 
 describe("formatCommitsForPrompt", () => {
   it("formats a single commit with files", () => {
@@ -153,5 +167,110 @@ describe("parseGenerationResponse", () => {
     const section = parseGenerationResponse("{}", week);
     expect(section.categories.added).toEqual([]);
     expect(section.commitMessage).toBe("export 2026-07-16");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// generateChangelogSection retry tests
+// ---------------------------------------------------------------------------
+
+describe("generateChangelogSection retry", () => {
+  const week: WeekGroup = {
+    weekStart: "2026-07-16",
+    weekEnd: "2026-07-22",
+    commits: [
+      {
+        hash: "abc",
+        date: "2026-07-16",
+        message: "Add feature",
+        files: [{ path: "src/a.ts", additions: 5, deletions: 0 }],
+      },
+    ],
+  };
+
+  const validResponse = JSON.stringify({
+    categories: { added: ["Feature A"] },
+    commitMessage: "Add feature A",
+  });
+
+  beforeEach(() => {
+    callAiProviderMock.mockReset();
+  });
+
+  it("succeeds on first attempt with valid JSON", async () => {
+    callAiProviderMock.mockResolvedValue(validResponse);
+
+    const section = await generateChangelogSection({
+      provider: "openai",
+      model: "gpt-4",
+      language: "en",
+      week,
+    });
+
+    expect(callAiProviderMock).toHaveBeenCalledTimes(1);
+    expect(section.categories.added).toEqual(["Feature A"]);
+  });
+
+  it("retries on invalid JSON and succeeds on second attempt", async () => {
+    callAiProviderMock.mockResolvedValueOnce("not valid json").mockResolvedValueOnce(validResponse);
+
+    const section = await generateChangelogSection({
+      provider: "openai",
+      model: "gpt-4",
+      language: "en",
+      week,
+    });
+
+    expect(callAiProviderMock).toHaveBeenCalledTimes(2);
+    expect(section.categories.added).toEqual(["Feature A"]);
+  });
+
+  it("retries up to 3 attempts and throws after all fail", async () => {
+    callAiProviderMock
+      .mockResolvedValueOnce("invalid 1")
+      .mockResolvedValueOnce("invalid 2")
+      .mockResolvedValueOnce("invalid 3");
+
+    await expect(
+      generateChangelogSection({
+        provider: "openai",
+        model: "gpt-4",
+        language: "en",
+        week,
+      }),
+    ).rejects.toThrow("failed to produce valid changelog JSON after 3 attempts");
+
+    expect(callAiProviderMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("adds retry hint to user prompt on second attempt", async () => {
+    callAiProviderMock.mockResolvedValueOnce("invalid").mockResolvedValueOnce(validResponse);
+
+    await generateChangelogSection({
+      provider: "openai",
+      model: "gpt-4",
+      language: "en",
+      week,
+    });
+
+    const secondCallArgs = callAiProviderMock.mock.calls[1][0];
+    expect(secondCallArgs.userPrompt).toContain("valid JSON");
+  });
+
+  it("adds FINAL ATTEMPT hint on third attempt", async () => {
+    callAiProviderMock
+      .mockResolvedValueOnce("invalid 1")
+      .mockResolvedValueOnce("invalid 2")
+      .mockResolvedValueOnce(validResponse);
+
+    await generateChangelogSection({
+      provider: "openai",
+      model: "gpt-4",
+      language: "en",
+      week,
+    });
+
+    const thirdCallArgs = callAiProviderMock.mock.calls[2][0];
+    expect(thirdCallArgs.userPrompt).toContain("FINAL ATTEMPT");
   });
 });
