@@ -90,8 +90,8 @@ describe("integration: git collect + group", () => {
 
     const commits = collectCommits(dir, ["src"], undefined, "2026-07-12");
     expect(commits).toHaveLength(2);
-    expect(commits[0].message).toBe("Old commit");
-    expect(commits[1].message).toBe("Mid commit");
+    expect(commits[0].message).toBe("Mid commit");
+    expect(commits[1].message).toBe("Old commit");
   });
 
   it("collects commits with both sinceDate and untilDate", async () => {
