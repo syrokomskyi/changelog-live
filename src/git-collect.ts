@@ -8,6 +8,7 @@
 </MODULE_CONTRACT>
 <CHANGE_SUMMARY>
   <item>Initial implementation of git commit analysis</item>
+  <item>ADR-0004: added untilDate parameter to collectCommits() and resolveTagToDate() helper</item>
 </CHANGE_SUMMARY>
 */
 
@@ -85,12 +86,25 @@ const RECORD_SEP = "\x1e";
  * Collect git commits affecting the given paths, since a specific date (exclusive).
  * If sinceDate is undefined, collects all commits.
  */
-export function collectCommits(repoRoot: string, paths: string[], sinceDate?: string): GitCommit[] {
+export function collectCommits(
+  repoRoot: string,
+  paths: string[],
+  sinceDate?: string,
+  untilDate?: string,
+): GitCommit[] {
   const pathArgs = paths.length > 0 ? ["--", ...paths] : [];
   const sinceArg = sinceDate ? [`--since="${sinceDate} 00:00:00"`] : [];
+  const untilArg = untilDate ? [`--until="${untilDate} 23:59:59"`] : [];
 
   const format = `%H${FIELD_SEP}%ad${FIELD_SEP}%s${FIELD_SEP}${RECORD_SEP}`;
-  const args = ["log", `--format=${format}`, `--date=format:%Y-%m-%d`, ...sinceArg, ...pathArgs];
+  const args = [
+    "log",
+    `--format=${format}`,
+    `--date=format:%Y-%m-%d`,
+    ...sinceArg,
+    ...untilArg,
+    ...pathArgs,
+  ];
 
   const output = execSync(`git ${args.join(" ")}`, {
     cwd: repoRoot,
@@ -251,4 +265,23 @@ export function isWeekInProgress(weekEnd: string): boolean {
   const now = new Date();
   now.setHours(0, 0, 0, 0);
   return end >= now;
+}
+
+/**
+ * Resolve a git tag to its commit date as YYYY-MM-DD.
+ * Uses `git log -1 --format=%ad --date=short <tag>`.
+ * Returns null if the tag does not exist.
+ */
+export function resolveTagToDate(repoRoot: string, tag: string): string | null {
+  try {
+    const output = execSync(`git log -1 --format=%ad --date=short ${tag}`, {
+      cwd: repoRoot,
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    const date = output.trim();
+    return date || null;
+  } catch {
+    return null;
+  }
 }

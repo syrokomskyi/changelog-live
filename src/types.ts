@@ -48,6 +48,7 @@ export const PROVIDER_ENV_KEYS: Record<Provider, string> = {
 export const AI_PROVIDER_SCHEMA = z.object({
   provider: PROVIDER_SCHEMA,
   model: z.string().optional(),
+  systemPrompt: z.string().optional(),
 });
 
 export const CHANGELOG_CONFIG_SCHEMA = z.object({
@@ -203,4 +204,16 @@ export interface ParsedPublicSection {
   title: string;
   summary: string;
   raw: string;
+}
+
+// ---------------------------------------------------------------------------
+// Period control options (ADR-0004)
+// ---------------------------------------------------------------------------
+
+export interface PeriodOptions {
+  since?: string;
+  until?: string;
+  sinceTag?: string;
+  untilTag?: string;
+  force?: boolean;
 }

@@ -46,7 +46,12 @@ import {
   parseTranslatedPublicSection,
 } from "./markdown.js";
 
-import type { ChangelogConfig, ChangelogSection, PublicChangelogSection } from "./types.js";
+import type {
+  ChangelogConfig,
+  ChangelogSection,
+  PublicChangelogSection,
+  PeriodOptions,
+} from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Re-exports
@@ -72,6 +77,7 @@ export {
   parseDate,
   getCurrentWeekStart,
   isWeekInProgress,
+  resolveTagToDate,
 } from "./git-collect.js";
 export { generateChangelogSection } from "./ai-generate.js";
 export { translateChangelogSection } from "./ai-translate.js";
@@ -110,12 +116,22 @@ export interface GenerateChangelogResult {
  */
 export async function generateChangelog(
   configOrPath: string | ChangelogConfig,
+  period?: PeriodOptions,
 ): Promise<GenerateChangelogResult> {
   const config: ChangelogConfig =
     typeof configOrPath === "string" ? await loadConfig(configOrPath) : configOrPath;
 
   const paths = config.git.paths ?? (config.git.subPath ? [config.git.subPath] : []);
   const primaryFilePath = getPrimaryFilePath(config);
+
+  // Resolve period options (ADR-0004)
+  const resolvedSince = period?.sinceTag
+    ? (resolveTagToDate(config.git.repoRoot, period.sinceTag) ?? period.since)
+    : period?.since;
+  const resolvedUntil = period?.untilTag
+    ? (resolveTagToDate(config.git.repoRoot, period.untilTag) ?? period.until)
+    : period?.until;
+  const force = period?.force ?? false;
 
   // 1. Read existing CHANGELOG to find last entry date
   let existingContent: string | null = null;
@@ -128,7 +144,10 @@ export async function generateChangelog(
   let sinceDate: string | undefined;
   let existingParsed = null;
 
-  if (existingContent) {
+  if (resolvedSince) {
+    // CLI --since takes priority over auto-detected sinceDate
+    sinceDate = resolvedSince;
+  } else if (existingContent) {
     existingParsed = parseChangelog(existingContent);
     const lastSection = getLastSection(existingParsed);
     if (lastSection) {
@@ -138,7 +157,7 @@ export async function generateChangelog(
   }
 
   // 2. Collect commits
-  const commits = collectCommits(config.git.repoRoot, paths, sinceDate);
+  const commits = collectCommits(config.git.repoRoot, paths, sinceDate, resolvedUntil);
 
   if (commits.length === 0 && !config.publicChangelog) {
     console.log("changelog-live: no new commits since last entry, skipping.");
@@ -166,8 +185,8 @@ export async function generateChangelog(
     weeks = weeks.filter((w) => {
       // Skip weeks that are still in progress (not yet fully completed)
       if (isWeekInProgress(w.weekEnd)) return false;
-      // Skip weeks that are already in the changelog
-      if (existingWeeks.has(w.weekStart)) return false;
+      // Skip weeks that are already in the changelog unless --force is set
+      if (!force && existingWeeks.has(w.weekStart)) return false;
       return true;
     });
   } else {
@@ -202,6 +221,7 @@ export async function generateChangelog(
         model: config.ai.generation.model!,
         language: config.languages.primary,
         week,
+        systemPrompt: config.ai.generation.systemPrompt,
       });
       newSections.push(section);
       lastCommitMessage = section.commitMessage;
@@ -248,6 +268,7 @@ export async function generateChangelog(
           sourceLanguage: config.languages.primary,
           targetLanguage: lang,
           markdown: sectionMd,
+          systemPrompt: config.ai.translation.systemPrompt,
         });
 
         // Parse the translated markdown back into a section
@@ -271,6 +292,7 @@ export async function generateChangelog(
           sourceLanguage: config.languages.primary,
           targetLanguage: lang,
           markdown: header,
+          systemPrompt: config.ai.translation.systemPrompt,
         });
         allTranslatedSections = translatedSections;
         translatedHeader = translatedHeaderMd;
@@ -305,7 +327,9 @@ export async function generateChangelog(
     // Determine sinceDate for public changelog
     let publicSinceDate: string | undefined;
     let existingPublicParsed = null;
-    if (existingPublicContent) {
+    if (resolvedSince) {
+      publicSinceDate = resolvedSince;
+    } else if (existingPublicContent) {
       existingPublicParsed = parsePublicChangelog(existingPublicContent);
       const lastPublicSection = getLastPublicSection(existingPublicParsed);
       if (lastPublicSection) {
@@ -314,7 +338,12 @@ export async function generateChangelog(
     }
 
     // Collect commits for public changelog independently
-    const publicCommits = collectCommits(config.git.repoRoot, paths, publicSinceDate);
+    const publicCommits = collectCommits(
+      config.git.repoRoot,
+      paths,
+      publicSinceDate,
+      resolvedUntil,
+    );
     if (publicCommits.length === 0) {
       console.log("changelog-live: public changelog already up to date, no new commits.");
     } else {
@@ -331,7 +360,7 @@ export async function generateChangelog(
         const existingPublicWeeks = new Set(existingPublicParsed.sections.map((s) => s.weekStart));
         publicWeeks = publicWeeks.filter((w) => {
           if (isWeekInProgress(w.weekEnd)) return false;
-          if (existingPublicWeeks.has(w.weekStart)) return false;
+          if (!force && existingPublicWeeks.has(w.weekStart)) return false;
           return true;
         });
       } else {
@@ -352,6 +381,7 @@ export async function generateChangelog(
             model: config.ai.generation.model!,
             language: config.languages.primary,
             week,
+            systemPrompt: config.ai.generation.systemPrompt,
           });
           newPublicSections.push(publicSection);
         }
@@ -399,6 +429,7 @@ export async function generateChangelog(
               sourceLanguage: config.languages.primary,
               targetLanguage: lang,
               markdown: sectionMd,
+              systemPrompt: config.ai.translation.systemPrompt,
             });
 
             const translated = parseTranslatedPublicSection(translatedMd, section);
@@ -422,6 +453,7 @@ export async function generateChangelog(
               sourceLanguage: config.languages.primary,
               targetLanguage: lang,
               markdown: publicHeader,
+              systemPrompt: config.ai.translation.systemPrompt,
             });
             allTranslatedPublicSections = translatedPublicSections;
             translatedPublicHeader = translatedHeaderMd;

@@ -10,6 +10,7 @@
 </MODULE_CONTRACT>
 <CHANGE_SUMMARY>
   <item>Initial implementation of changelog generation CLI</item>
+  <item>ADR-0004: added --since, --until, --since-tag, --until-tag, --force CLI flags</item>
   <item>ADR-0010: added --force flag to init, .env loading from CWD</item>
 </CHANGE_SUMMARY>
 */
@@ -200,33 +201,57 @@ program
   .description("AI-powered CHANGELOG.md generator from git history")
   .version(pkg.version)
   .option("-c, --config <path>", "Path to changelog.config.yaml", "changelog.config.yaml")
-  .action(async (opts: { config: string }) => {
-    const configPath = path.resolve(opts.config);
+  .option("--since <date>", "Collect commits since this date (YYYY-MM-DD)")
+  .option("--until <date>", "Collect commits until this date (YYYY-MM-DD)")
+  .option("--since-tag <tag>", "Resolve tag to date and use as --since")
+  .option("--until-tag <tag>", "Resolve tag to date and use as --until")
+  .option("--force", "Regenerate existing weeks (in-progress weeks still skipped)")
+  .action(
+    async (opts: {
+      config: string;
+      since?: string;
+      until?: string;
+      sinceTag?: string;
+      untilTag?: string;
+      force?: boolean;
+    }) => {
+      const configPath = path.resolve(opts.config);
 
-    if (!existsSync(configPath)) {
-      console.log(NO_CONFIG_MESSAGE);
-      process.exit(0);
-    }
-
-    try {
-      const result = await generateChangelog(configPath);
-
-      if (result.skipped) {
-        console.log("changelog-live: no new commits, CHANGELOG unchanged.");
+      if (!existsSync(configPath)) {
+        console.log(NO_CONFIG_MESSAGE);
         process.exit(0);
       }
 
-      console.log(`changelog-live: ${result.sectionsGenerated} section(s) generated.`);
-      console.log(`  commit message: ${result.commitMessage}`);
-      console.log("  files written:");
-      for (const f of result.filesWritten) {
-        console.log(`    ${f}`);
+      const period = {
+        since: opts.since,
+        until: opts.until,
+        sinceTag: opts.sinceTag,
+        untilTag: opts.untilTag,
+        force: opts.force ?? false,
+      };
+      const hasPeriodOpts =
+        period.since || period.until || period.sinceTag || period.untilTag || period.force;
+
+      try {
+        const result = await generateChangelog(configPath, hasPeriodOpts ? period : undefined);
+
+        if (result.skipped) {
+          console.log("changelog-live: no new commits, CHANGELOG unchanged.");
+          process.exit(0);
+        }
+
+        console.log(`changelog-live: ${result.sectionsGenerated} section(s) generated.`);
+        console.log(`  commit message: ${result.commitMessage}`);
+        console.log("  files written:");
+        for (const f of result.filesWritten) {
+          console.log(`    ${f}`);
+        }
+      } catch (err) {
+        console.error("changelog-live failed:", err instanceof Error ? err.message : err);
+        process.exit(1);
       }
-    } catch (err) {
-      console.error("changelog-live failed:", err instanceof Error ? err.message : err);
-      process.exit(1);
-    }
-  });
+    },
+  );
 
 program
   .command("init")
