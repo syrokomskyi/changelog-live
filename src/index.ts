@@ -24,9 +24,9 @@ import {
 } from "./config.js";
 import {
   collectCommits,
-  groupCommitsByWeek,
-  takeLastWeeks,
-  isWeekInProgress,
+  groupCommits,
+  takeLastPeriods,
+  isPeriodInProgress,
   resolveTagToDate,
 } from "./git-collect.js";
 import { generateChangelogSection, generatePublicChangelogSection } from "./ai-generate.js";
@@ -68,19 +68,24 @@ export {
   getApiKey,
   getPrimaryFilePath,
   getTranslationFilePath,
+  applyCliOverrides,
+  type CliOverrides,
 } from "./config.js";
+export { createLogger, silentLogger, type Logger, type LogLevel } from "./logger.js";
 export {
   collectCommits,
   getFirstCommitDate,
   getLastCommitDate,
-  groupCommitsByWeek,
-  takeLastWeeks,
+  groupCommits,
+  takeLastPeriods,
   getWeekStart,
   getWeekEnd,
+  getPeriodStart,
+  getPeriodEnd,
   formatDate,
   parseDate,
-  getCurrentWeekStart,
-  isWeekInProgress,
+  getCurrentPeriodStart,
+  isPeriodInProgress,
   resolveTagToDate,
 } from "./git-collect.js";
 export { generateChangelogSection } from "./ai-generate.js";
@@ -129,18 +134,19 @@ export async function generateChangelog(
 
   const dryRun = (options as GenerateOptions)?.dryRun ?? false;
   const logger: Logger = (options as GenerateOptions)?.logger ?? createLogger("normal");
+  const period = options;
 
   const paths = config.git.paths ?? (config.git.subPath ? [config.git.subPath] : []);
   const primaryFilePath = getPrimaryFilePath(config);
 
   // Resolve period options (ADR-0004)
-  const resolvedSince = options?.sinceTag
-    ? (resolveTagToDate(config.git.repoRoot, options.sinceTag) ?? options.since)
-    : options?.since;
-  const resolvedUntil = options?.untilTag
-    ? (resolveTagToDate(config.git.repoRoot, options.untilTag) ?? options.until)
-    : options?.until;
-  const force = options?.force ?? false;
+  const resolvedSince = period?.sinceTag
+    ? (resolveTagToDate(config.git.repoRoot, period.sinceTag) ?? period.since)
+    : period?.since;
+  const resolvedUntil = period?.untilTag
+    ? (resolveTagToDate(config.git.repoRoot, period.untilTag) ?? period.until)
+    : period?.until;
+  const force = period?.force ?? false;
 
   // Build effective commit filter: config filter merged with CLI --no-merges override (ADR-0006)
   const effectiveFilter = {
@@ -169,8 +175,8 @@ export async function generateChangelog(
     existingParsed = parseChangelog(existingContent);
     const lastSection = getLastSection(existingParsed);
     if (lastSection) {
-      // Collect commits since the start of the last known week
-      sinceDate = lastSection.weekStart;
+      // Collect commits since the start of the last known period
+      sinceDate = lastSection.periodStart;
     }
   }
 
@@ -193,33 +199,33 @@ export async function generateChangelog(
     };
   }
 
-  // 3. Group by week
-  let weeks = groupCommitsByWeek(commits, config.grouping.startDay);
+  // 3. Group by period
+  let groups = groupCommits(commits, config.grouping.period, config.grouping.startDay);
 
-  // 4. First run: apply maxHistoryWeeks if set
-  if (!existingContent && config.maxHistoryWeeks) {
-    weeks = takeLastWeeks(weeks, config.maxHistoryWeeks);
+  // 4. First run: apply maxHistoryPeriods if set
+  if (!existingContent && config.maxHistoryPeriods) {
+    groups = takeLastPeriods(groups, config.maxHistoryPeriods);
   }
 
-  // 5. Filter out weeks that are already in the changelog or still in progress.
-  //    Only fully completed weeks not yet in the changelog are generated.
+  // 5. Filter out periods that are already in the changelog or still in progress.
+  //    Only fully completed periods not yet in the changelog are generated.
   if (existingParsed) {
-    const existingWeeks = new Set(existingParsed.sections.map((s) => s.weekStart));
+    const existingPeriods = new Set(existingParsed.sections.map((s) => s.periodStart));
 
-    weeks = weeks.filter((w) => {
-      // Skip weeks that are still in progress (not yet fully completed)
-      if (isWeekInProgress(w.weekEnd)) return false;
-      // Skip weeks that are already in the changelog unless --force is set
-      if (!force && existingWeeks.has(w.weekStart)) return false;
+    groups = groups.filter((g) => {
+      // Skip periods that are still in progress (not yet fully completed)
+      if (isPeriodInProgress(g.periodEnd)) return false;
+      // Skip periods that are already in the changelog unless --force is set
+      if (!force && existingPeriods.has(g.periodStart)) return false;
       return true;
     });
   } else {
-    // First run: still skip in-progress weeks
-    weeks = weeks.filter((w) => !isWeekInProgress(w.weekEnd));
+    // First run: still skip in-progress periods
+    groups = groups.filter((g) => !isPeriodInProgress(g.periodEnd));
   }
 
-  if (weeks.length === 0 && !config.publicChangelog) {
-    logger.info("changelog-live: all weeks already covered, skipping.");
+  if (groups.length === 0 && !config.publicChangelog) {
+    logger.info("changelog-live: all periods already covered, skipping.");
     return {
       sectionsGenerated: 0,
       commitMessage: "no changes",
@@ -228,27 +234,27 @@ export async function generateChangelog(
     };
   }
 
-  const internalSkipped = weeks.length === 0;
+  const internalSkipped = groups.length === 0;
 
-  // 6. Generate AI sections for each week
+  // 6. Generate AI sections for each period
   const newSections: ChangelogSection[] = [];
   let lastCommitMessage = "no changes";
   const filesWritten: string[] = [];
 
   if (!internalSkipped) {
-    for (const week of weeks) {
+    for (const group of groups) {
       logger.info(
-        `changelog-live: generating section for week ${week.weekStart} — ${week.weekEnd} (${week.commits.length} commits)`,
+        `changelog-live: generating section for period ${group.periodStart} — ${group.periodEnd} (${group.commits.length} commits)`,
       );
-      logger.verbose(`changelog-live: ${week.commits.length} commits for this week:`);
-      for (const c of week.commits) {
+      logger.verbose(`changelog-live: ${group.commits.length} commits for this period:`);
+      for (const c of group.commits) {
         logger.verbose(`  ${c.hash.slice(0, 7)} ${c.date} ${c.message.split("\n")[0]}`);
       }
       const section = await generateChangelogSection({
         provider: config.ai.generation.provider,
         model: config.ai.generation.model!,
         language: config.languages.primary,
-        week,
+        group,
         systemPrompt: config.ai.generation.systemPrompt,
         logger,
       });
@@ -374,7 +380,7 @@ export async function generateChangelog(
       existingPublicParsed = parsePublicChangelog(existingPublicContent);
       const lastPublicSection = getLastPublicSection(existingPublicParsed);
       if (lastPublicSection) {
-        publicSinceDate = lastPublicSection.weekStart;
+        publicSinceDate = lastPublicSection.periodStart;
       }
     }
 
@@ -389,44 +395,50 @@ export async function generateChangelog(
     if (publicCommits.length === 0) {
       logger.info("changelog-live: public changelog already up to date, no new commits.");
     } else {
-      // Group by week
-      let publicWeeks = groupCommitsByWeek(publicCommits, config.grouping.startDay);
+      // Group by period
+      let publicGroups = groupCommits(
+        publicCommits,
+        config.grouping.period,
+        config.grouping.startDay,
+      );
 
-      // First run: apply maxHistoryWeeks if set
-      if (!existingPublicContent && config.maxHistoryWeeks) {
-        publicWeeks = takeLastWeeks(publicWeeks, config.maxHistoryWeeks);
+      // First run: apply maxHistoryPeriods if set
+      if (!existingPublicContent && config.maxHistoryPeriods) {
+        publicGroups = takeLastPeriods(publicGroups, config.maxHistoryPeriods);
       }
 
-      // Filter out in-progress and already-covered weeks
+      // Filter out in-progress and already-covered periods
       if (existingPublicParsed) {
-        const existingPublicWeeks = new Set(existingPublicParsed.sections.map((s) => s.weekStart));
-        publicWeeks = publicWeeks.filter((w) => {
-          if (isWeekInProgress(w.weekEnd)) return false;
-          if (!force && existingPublicWeeks.has(w.weekStart)) return false;
+        const existingPublicPeriods = new Set(
+          existingPublicParsed.sections.map((s) => s.periodStart),
+        );
+        publicGroups = publicGroups.filter((g) => {
+          if (isPeriodInProgress(g.periodEnd)) return false;
+          if (!force && existingPublicPeriods.has(g.periodStart)) return false;
           return true;
         });
       } else {
-        publicWeeks = publicWeeks.filter((w) => !isWeekInProgress(w.weekEnd));
+        publicGroups = publicGroups.filter((g) => !isPeriodInProgress(g.periodEnd));
       }
 
-      if (publicWeeks.length === 0) {
+      if (publicGroups.length === 0) {
         logger.info("changelog-live: public changelog already up to date.");
       } else {
-        // Generate public sections for each new week
+        // Generate public sections for each new period
         const newPublicSections: PublicChangelogSection[] = [];
-        for (const week of publicWeeks) {
+        for (const group of publicGroups) {
           logger.info(
-            `changelog-live: generating public section for week ${week.weekStart} — ${week.weekEnd}`,
+            `changelog-live: generating public section for period ${group.periodStart} — ${group.periodEnd}`,
           );
-          logger.verbose(`changelog-live: ${week.commits.length} public commits for this week:`);
-          for (const c of week.commits) {
+          logger.verbose(`changelog-live: ${group.commits.length} public commits for this period:`);
+          for (const c of group.commits) {
             logger.verbose(`  ${c.hash.slice(0, 7)} ${c.date} ${c.message.split("\n")[0]}`);
           }
           const publicSection = await generatePublicChangelogSection({
             provider: config.ai.generation.provider,
             model: config.ai.generation.model!,
             language: config.languages.primary,
-            week,
+            group,
             systemPrompt: config.ai.generation.systemPrompt,
             logger,
           });

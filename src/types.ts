@@ -7,6 +7,7 @@
 </MODULE_CONTRACT>
 <CHANGE_SUMMARY>
   <item>Initial definition of schemas and types for configuration and changelog management.</item>
+  <item>ADR-0006: added CommitFilter schema, filter field to CHANGELOG_CONFIG_SCHEMA, author to GitCommit</item>
   <item>ADR-0007: Added optional systemPrompt field to AI_PROVIDER_SCHEMA for custom AI prompts</item>
 </CHANGE_SUMMARY>
 */
@@ -55,6 +56,14 @@ export const AI_PROVIDER_SCHEMA = z.object({
   systemPrompt: z.string().optional(),
 });
 
+export const COMMIT_FILTER_SCHEMA = z.object({
+  excludeMerges: z.boolean().default(false),
+  excludeAuthors: z.array(z.string()).default([]),
+  excludePatterns: z.array(z.string()).default([]),
+});
+
+export type CommitFilter = z.infer<typeof COMMIT_FILTER_SCHEMA>;
+
 export const CHANGELOG_CONFIG_SCHEMA = z.object({
   git: z
     .object({
@@ -90,6 +99,11 @@ export const CHANGELOG_CONFIG_SCHEMA = z.object({
   maxHistoryPeriods: z.number().int().positive().optional(),
   sortOrder: SORT_ORDER_SCHEMA.default("desc"),
   publicChangelog: z.boolean().default(false),
+  filter: COMMIT_FILTER_SCHEMA.default({
+    excludeMerges: false,
+    excludeAuthors: [],
+    excludePatterns: [],
+  }),
 });
 
 export type ChangelogConfig = z.infer<typeof CHANGELOG_CONFIG_SCHEMA>;
@@ -101,6 +115,7 @@ export type ChangelogConfig = z.infer<typeof CHANGELOG_CONFIG_SCHEMA>;
 export interface GitCommit {
   hash: string;
   date: string;
+  author: string;
   message: string;
   files: GitFileStat[];
 }
@@ -220,6 +235,7 @@ export interface PeriodOptions {
   sinceTag?: string;
   untilTag?: string;
   force?: boolean;
+  noMerges?: boolean;
 }
 
 // ---------------------------------------------------------------------------

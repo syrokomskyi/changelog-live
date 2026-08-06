@@ -12,6 +12,8 @@
   <item>Initial implementation of changelog generation CLI</item>
   <item>ADR-0004: added --since, --until, --since-tag, --until-tag, --force CLI flags</item>
   <item>ADR-0010: added --force flag to init, .env loading from CWD</item>
+  <item>ADR-0006: added --no-merges CLI flag for commit filtering</item>
+  <item>ADR-0005: added --dry-run, --verbose, --quiet, --provider, --model, --output CLI flags</item>
 </CHANGE_SUMMARY>
 */
 
@@ -24,6 +26,8 @@ import { Command } from "commander";
 
 import { generateChangelog } from "./index.js";
 import { traceHistoricalPaths } from "./git-trace.js";
+import { loadConfig, applyCliOverrides } from "./config.js";
+import { createLogger, type LogLevel } from "./logger.js";
 
 /**
  * Auto-load .env from the git repo root so API keys are available
@@ -205,7 +209,14 @@ program
   .option("--until <date>", "Collect commits until this date (YYYY-MM-DD)")
   .option("--since-tag <tag>", "Resolve tag to date and use as --since")
   .option("--until-tag <tag>", "Resolve tag to date and use as --until")
-  .option("--force", "Regenerate existing weeks (in-progress weeks still skipped)")
+  .option("--force", "Regenerate existing periods (in-progress periods still skipped)")
+  .option("--no-merges", "Exclude merge commits (shorthand for filter.excludeMerges)")
+  .option("--dry-run", "Run pipeline without writing files (output to stdout)")
+  .option("--verbose", "Show detailed output (commits, AI prompts, timing)")
+  .option("--quiet", "Suppress all output except errors")
+  .option("--provider <name>", "Override AI provider (openai, anthropic, gemini)")
+  .option("--model <name>", "Override AI model for generation and translation")
+  .option("--output <path>", "Override output directory or file path")
   .action(
     async (opts: {
       config: string;
@@ -214,6 +225,13 @@ program
       sinceTag?: string;
       untilTag?: string;
       force?: boolean;
+      noMerges?: boolean;
+      dryRun?: boolean;
+      verbose?: boolean;
+      quiet?: boolean;
+      provider?: string;
+      model?: string;
+      output?: string;
     }) => {
       const configPath = path.resolve(opts.config);
 
@@ -222,32 +240,68 @@ program
         process.exit(0);
       }
 
+      // Determine log level: --quiet takes priority over --verbose
+      let logLevel: LogLevel = "normal";
+      if (opts.quiet) logLevel = "quiet";
+      else if (opts.verbose) logLevel = "verbose";
+      const logger = createLogger(logLevel);
+
       const period = {
         since: opts.since,
         until: opts.until,
         sinceTag: opts.sinceTag,
         untilTag: opts.untilTag,
         force: opts.force ?? false,
+        noMerges: opts.noMerges ?? false,
+        dryRun: opts.dryRun ?? false,
+        logger,
       };
       const hasPeriodOpts =
-        period.since || period.until || period.sinceTag || period.untilTag || period.force;
+        period.since ||
+        period.until ||
+        period.sinceTag ||
+        period.untilTag ||
+        period.force ||
+        period.noMerges ||
+        opts.dryRun;
 
       try {
-        const result = await generateChangelog(configPath, hasPeriodOpts ? period : undefined);
+        // Load config and apply CLI overrides (ADR-0005)
+        let config = await loadConfig(configPath);
+        const hasOverrides = opts.provider || opts.model || opts.output;
+        if (hasOverrides) {
+          config = applyCliOverrides(config, {
+            provider: opts.provider,
+            model: opts.model,
+            output: opts.output,
+          });
+          logger.verbose(
+            `changelog-live: applied CLI overrides — provider: ${opts.provider ?? "(none)"}, model: ${opts.model ?? "(none)"}, output: ${opts.output ?? "(none)"}`,
+          );
+        }
+
+        const result = await generateChangelog(config, hasPeriodOpts ? period : undefined);
 
         if (result.skipped) {
-          console.log("changelog-live: no new commits, CHANGELOG unchanged.");
+          logger.info("changelog-live: no new commits, CHANGELOG unchanged.");
           process.exit(0);
         }
 
-        console.log(`changelog-live: ${result.sectionsGenerated} section(s) generated.`);
-        console.log(`  commit message: ${result.commitMessage}`);
-        console.log("  files written:");
-        for (const f of result.filesWritten) {
-          console.log(`    ${f}`);
+        logger.info(`changelog-live: ${result.sectionsGenerated} section(s) generated.`);
+        if (!opts.quiet) {
+          logger.info(`  commit message: ${result.commitMessage}`);
+          if (result.filesWritten.length > 0) {
+            logger.info("  files written:");
+            for (const f of result.filesWritten) {
+              logger.info(`    ${f}`);
+            }
+          }
+          if (opts.dryRun) {
+            logger.info("  (dry-run mode — no files written)");
+          }
         }
       } catch (err) {
-        console.error("changelog-live failed:", err instanceof Error ? err.message : err);
+        logger.error(`changelog-live failed: ${err instanceof Error ? err.message : err}`);
         process.exit(1);
       }
     },

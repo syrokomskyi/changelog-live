@@ -16,6 +16,7 @@ import type { Provider } from "./types.js";
 import { getApiKey } from "./config.js";
 import { callAiProvider } from "./ai-provider.js";
 import { getLanguageName } from "./languages.js";
+import type { Logger } from "./logger.js";
 
 // ---------------------------------------------------------------------------
 // Translation
@@ -28,6 +29,7 @@ export interface TranslateOptions {
   targetLanguage: string;
   markdown: string;
   systemPrompt?: string;
+  logger?: Logger;
 }
 
 /**
@@ -40,7 +42,11 @@ export async function translateChangelogSection(opts: TranslateOptions): Promise
   const systemPrompt =
     opts.systemPrompt ?? buildTranslationPrompt(opts.sourceLanguage, opts.targetLanguage);
   const userPrompt = opts.markdown;
+  const logger = opts.logger;
 
+  logger?.verbose(`changelog-live: [AI] translation prompt (${opts.sourceLanguage} → ${opts.targetLanguage}):
+${userPrompt.slice(0, 500)}...`);
+  const startTime = Date.now();
   const raw = await callAiProvider({
     provider: opts.provider,
     model: opts.model,
@@ -48,6 +54,9 @@ export async function translateChangelogSection(opts: TranslateOptions): Promise
     systemPrompt,
     userPrompt,
   });
+  const elapsed = Date.now() - startTime;
+  logger?.verbose(`changelog-live: [AI] translation response (${elapsed}ms):
+${raw.slice(0, 500)}...`);
   return raw;
 }
 
