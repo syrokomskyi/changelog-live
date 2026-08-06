@@ -26,6 +26,7 @@ import {
   groupCommitsByWeek,
   takeLastWeeks,
   isWeekInProgress,
+  resolveTagToDate,
 } from "./git-collect.js";
 import { generateChangelogSection, generatePublicChangelogSection } from "./ai-generate.js";
 import { translateChangelogSection } from "./ai-translate.js";
