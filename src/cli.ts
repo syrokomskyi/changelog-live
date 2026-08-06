@@ -10,6 +10,7 @@
 </MODULE_CONTRACT>
 <CHANGE_SUMMARY>
   <item>Initial implementation of changelog generation CLI</item>
+  <item>ADR-0010: added --force flag to init, .env loading from CWD</item>
 </CHANGE_SUMMARY>
 */
 
@@ -37,6 +38,16 @@ function loadRepoEnv(): void {
     }
   } catch {
     // Not in a git repo or no .env — rely on existing process.env
+  }
+
+  // CWD .env takes priority over repo root .env (loaded second, overwrites values)
+  const cwdEnvPath = path.join(process.cwd(), ".env");
+  if (existsSync(cwdEnvPath)) {
+    try {
+      process.loadEnvFile(cwdEnvPath);
+    } catch {
+      // .env exists but failed to load — ignore
+    }
   }
 }
 
@@ -131,14 +142,20 @@ function buildConfigYaml(repoRoot: string, gitPaths: string[], defaultsYaml: str
   return lines.join("\n") + "\n";
 }
 
-async function initCommand(): Promise<void> {
+async function initCommand(options: { force?: boolean }): Promise<void> {
   const cwd = process.cwd();
 
   const configPath = path.join(cwd, "changelog.config.yaml");
-  if (existsSync(configPath)) {
+  if (existsSync(configPath) && !options.force) {
     console.log("changelog-live init: changelog.config.yaml already exists in this directory.");
-    console.log("  Delete it first if you want to re-initialize git history paths.");
+    console.log(
+      "  Use --force to overwrite, or delete it first if you want to re-initialize git history paths.",
+    );
     process.exit(0);
+  }
+
+  if (existsSync(configPath) && options.force) {
+    console.log("changelog-live init: WARNING — overwriting existing changelog.config.yaml");
   }
 
   const defaultConfigPath = findDefaultConfig(cwd);
@@ -214,9 +231,10 @@ program
 program
   .command("init")
   .description("Discover all git history paths and create changelog.config.yaml")
-  .action(async () => {
+  .option("-f, --force", "Overwrite existing changelog.config.yaml")
+  .action(async (opts: { force?: boolean }) => {
     try {
-      await initCommand();
+      await initCommand(opts);
     } catch (err) {
       console.error("changelog-live init failed:", err instanceof Error ? err.message : err);
       process.exit(1);
