@@ -8,6 +8,7 @@
 </MODULE_CONTRACT>
 <CHANGE_SUMMARY>
   <item>Initial implementation of changelog generation and translation.</item>
+  <item>ADR-0006: pass config.filter (merged with CLI --no-merges) to collectCommits</item>
 </CHANGE_SUMMARY>
 */
 
@@ -52,7 +53,9 @@ import type {
   ChangelogSection,
   PublicChangelogSection,
   PeriodOptions,
+  GenerateOptions,
 } from "./types.js";
+import { createLogger, type Logger } from "./logger.js";
 
 // ---------------------------------------------------------------------------
 // Re-exports
@@ -107,32 +110,46 @@ export interface GenerateChangelogResult {
   commitMessage: string;
   filesWritten: string[];
   skipped: boolean;
+  dryRunOutput?: string;
 }
 
 /**
  * Generate or update a CHANGELOG.md (and translations) from git history.
  *
- * @param configPath Path to a YAML config file, or a config object.
+ * @param configOrPath Path to a YAML config file, or a config object.
+ * @param options Period options and/or generation options (dryRun, logger).
  * @returns Result with info about what was generated.
  */
 export async function generateChangelog(
   configOrPath: string | ChangelogConfig,
-  period?: PeriodOptions,
+  options?: PeriodOptions | GenerateOptions,
 ): Promise<GenerateChangelogResult> {
   const config: ChangelogConfig =
     typeof configOrPath === "string" ? await loadConfig(configOrPath) : configOrPath;
+
+  const dryRun = (options as GenerateOptions)?.dryRun ?? false;
+  const logger: Logger = (options as GenerateOptions)?.logger ?? createLogger("normal");
 
   const paths = config.git.paths ?? (config.git.subPath ? [config.git.subPath] : []);
   const primaryFilePath = getPrimaryFilePath(config);
 
   // Resolve period options (ADR-0004)
-  const resolvedSince = period?.sinceTag
-    ? (resolveTagToDate(config.git.repoRoot, period.sinceTag) ?? period.since)
-    : period?.since;
-  const resolvedUntil = period?.untilTag
-    ? (resolveTagToDate(config.git.repoRoot, period.untilTag) ?? period.until)
-    : period?.until;
-  const force = period?.force ?? false;
+  const resolvedSince = options?.sinceTag
+    ? (resolveTagToDate(config.git.repoRoot, options.sinceTag) ?? options.since)
+    : options?.since;
+  const resolvedUntil = options?.untilTag
+    ? (resolveTagToDate(config.git.repoRoot, options.untilTag) ?? options.until)
+    : options?.until;
+  const force = options?.force ?? false;
+
+  // Build effective commit filter: config filter merged with CLI --no-merges override (ADR-0006)
+  const effectiveFilter = {
+    excludeMerges:
+      config.filter.excludeMerges ||
+      ((options as GenerateOptions & { noMerges?: boolean })?.noMerges ?? false),
+    excludeAuthors: config.filter.excludeAuthors,
+    excludePatterns: config.filter.excludePatterns,
+  };
 
   // 1. Read existing CHANGELOG to find last entry date
   let existingContent: string | null = null;
@@ -158,10 +175,16 @@ export async function generateChangelog(
   }
 
   // 2. Collect commits
-  const commits = collectCommits(config.git.repoRoot, paths, sinceDate, resolvedUntil);
+  const commits = collectCommits(
+    config.git.repoRoot,
+    paths,
+    sinceDate,
+    resolvedUntil,
+    effectiveFilter,
+  );
 
   if (commits.length === 0 && !config.publicChangelog) {
-    console.log("changelog-live: no new commits since last entry, skipping.");
+    logger.info("changelog-live: no new commits since last entry, skipping.");
     return {
       sectionsGenerated: 0,
       commitMessage: "no changes",
@@ -196,7 +219,7 @@ export async function generateChangelog(
   }
 
   if (weeks.length === 0 && !config.publicChangelog) {
-    console.log("changelog-live: all weeks already covered, skipping.");
+    logger.info("changelog-live: all weeks already covered, skipping.");
     return {
       sectionsGenerated: 0,
       commitMessage: "no changes",
@@ -214,15 +237,20 @@ export async function generateChangelog(
 
   if (!internalSkipped) {
     for (const week of weeks) {
-      console.log(
+      logger.info(
         `changelog-live: generating section for week ${week.weekStart} — ${week.weekEnd} (${week.commits.length} commits)`,
       );
+      logger.verbose(`changelog-live: ${week.commits.length} commits for this week:`);
+      for (const c of week.commits) {
+        logger.verbose(`  ${c.hash.slice(0, 7)} ${c.date} ${c.message.split("\n")[0]}`);
+      }
       const section = await generateChangelogSection({
         provider: config.ai.generation.provider,
         model: config.ai.generation.model!,
         language: config.languages.primary,
         week,
         systemPrompt: config.ai.generation.systemPrompt,
+        logger,
       });
       newSections.push(section);
       lastCommitMessage = section.commitMessage;
@@ -245,8 +273,13 @@ export async function generateChangelog(
     }
 
     const primaryMarkdown = renderFullChangelog(allSections, config.sortOrder, header);
-    await fs.writeFile(primaryFilePath, primaryMarkdown, "utf-8");
-    filesWritten.push(primaryFilePath);
+    if (dryRun) {
+      logger.info("changelog-live: [dry-run] primary changelog:");
+      logger.verbose(primaryMarkdown);
+    } else {
+      await fs.writeFile(primaryFilePath, primaryMarkdown, "utf-8");
+      filesWritten.push(primaryFilePath);
+    }
 
     // 8. Translate new sections and update translation files
     for (const lang of config.languages.translations) {
@@ -270,6 +303,7 @@ export async function generateChangelog(
           targetLanguage: lang,
           markdown: sectionMd,
           systemPrompt: config.ai.translation.systemPrompt,
+          logger,
         });
 
         // Parse the translated markdown back into a section
@@ -294,6 +328,7 @@ export async function generateChangelog(
           targetLanguage: lang,
           markdown: header,
           systemPrompt: config.ai.translation.systemPrompt,
+          logger,
         });
         allTranslatedSections = translatedSections;
         translatedHeader = translatedHeaderMd;
@@ -304,11 +339,16 @@ export async function generateChangelog(
         config.sortOrder,
         translatedHeader,
       );
-      await fs.writeFile(translationPath, translationMarkdown, "utf-8");
-      filesWritten.push(translationPath);
+      if (dryRun) {
+        logger.info(`changelog-live: [dry-run] translation (${lang}):`);
+        logger.verbose(translationMarkdown);
+      } else {
+        await fs.writeFile(translationPath, translationMarkdown, "utf-8");
+        filesWritten.push(translationPath);
+      }
     }
   } else {
-    console.log(
+    logger.info(
       "changelog-live: internal changelog already up to date, checking public changelog...",
     );
   }
@@ -344,9 +384,10 @@ export async function generateChangelog(
       paths,
       publicSinceDate,
       resolvedUntil,
+      effectiveFilter,
     );
     if (publicCommits.length === 0) {
-      console.log("changelog-live: public changelog already up to date, no new commits.");
+      logger.info("changelog-live: public changelog already up to date, no new commits.");
     } else {
       // Group by week
       let publicWeeks = groupCommitsByWeek(publicCommits, config.grouping.startDay);
@@ -369,20 +410,25 @@ export async function generateChangelog(
       }
 
       if (publicWeeks.length === 0) {
-        console.log("changelog-live: public changelog already up to date.");
+        logger.info("changelog-live: public changelog already up to date.");
       } else {
         // Generate public sections for each new week
         const newPublicSections: PublicChangelogSection[] = [];
         for (const week of publicWeeks) {
-          console.log(
+          logger.info(
             `changelog-live: generating public section for week ${week.weekStart} — ${week.weekEnd}`,
           );
+          logger.verbose(`changelog-live: ${week.commits.length} public commits for this week:`);
+          for (const c of week.commits) {
+            logger.verbose(`  ${c.hash.slice(0, 7)} ${c.date} ${c.message.split("\n")[0]}`);
+          }
           const publicSection = await generatePublicChangelogSection({
             provider: config.ai.generation.provider,
             model: config.ai.generation.model!,
             language: config.languages.primary,
             week,
             systemPrompt: config.ai.generation.systemPrompt,
+            logger,
           });
           newPublicSections.push(publicSection);
         }
@@ -407,8 +453,13 @@ export async function generateChangelog(
           config.sortOrder,
           publicHeader,
         );
-        await fs.writeFile(publicFilePath, publicMarkdown, "utf-8");
-        filesWritten.push(publicFilePath);
+        if (dryRun) {
+          logger.info("changelog-live: [dry-run] public changelog:");
+          logger.verbose(publicMarkdown);
+        } else {
+          await fs.writeFile(publicFilePath, publicMarkdown, "utf-8");
+          filesWritten.push(publicFilePath);
+        }
 
         // Translate public sections and write translation files
         for (const lang of config.languages.translations) {
@@ -431,6 +482,7 @@ export async function generateChangelog(
               targetLanguage: lang,
               markdown: sectionMd,
               systemPrompt: config.ai.translation.systemPrompt,
+              logger,
             });
 
             const translated = parseTranslatedPublicSection(translatedMd, section);
@@ -465,16 +517,27 @@ export async function generateChangelog(
             config.sortOrder,
             translatedPublicHeader,
           );
-          await fs.writeFile(publicTranslationPath, publicTranslationMarkdown, "utf-8");
-          filesWritten.push(publicTranslationPath);
+          if (dryRun) {
+            logger.info(`changelog-live: [dry-run] public translation (${lang}):`);
+            logger.verbose(publicTranslationMarkdown);
+          } else {
+            await fs.writeFile(publicTranslationPath, publicTranslationMarkdown, "utf-8");
+            filesWritten.push(publicTranslationPath);
+          }
         }
       }
     }
   }
 
-  console.log(
-    `changelog-live: generated ${newSections.length} section(s), wrote ${filesWritten.length} file(s).`,
-  );
+  if (dryRun) {
+    logger.info(
+      `changelog-live: [dry-run] generated ${newSections.length} section(s), 0 file(s) written (dry-run mode).`,
+    );
+  } else {
+    logger.info(
+      `changelog-live: generated ${newSections.length} section(s), wrote ${filesWritten.length} file(s).`,
+    );
+  }
 
   return {
     sectionsGenerated: newSections.length,
