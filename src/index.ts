@@ -89,7 +89,12 @@ export {
   resolveTagToDate,
   isChangelogOnlyCommit,
 } from "./git-collect.js";
-export { generateChangelogSection } from "./ai-generate.js";
+export {
+  generateChangelogSection,
+  chunkCommits,
+  mergeChangelogSections,
+  mergePublicChangelogSections,
+} from "./ai-generate.js";
 export { translateChangelogSection } from "./ai-translate.js";
 export {
   parseChangelog,
@@ -259,6 +264,7 @@ export async function generateChangelog(
         group,
         systemPrompt: config.ai.generation.systemPrompt,
         logger,
+        chunkSize: config.commitChunkSize,
       });
       newSections.push(section);
       lastCommitMessage = section.commitMessage;
@@ -443,6 +449,7 @@ export async function generateChangelog(
             group,
             systemPrompt: config.ai.generation.systemPrompt,
             logger,
+            chunkSize: config.commitChunkSize,
           });
           newPublicSections.push(publicSection);
         }

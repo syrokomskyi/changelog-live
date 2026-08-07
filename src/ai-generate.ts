@@ -44,6 +44,63 @@ export function formatCommitsForPrompt(commits: GitCommit[]): string {
     .join("\n\n");
 }
 
+// ---------------------------------------------------------------------------
+// Commit chunking (large period groups)
+// ---------------------------------------------------------------------------
+
+const DEFAULT_CHUNK_SIZE = 200;
+
+/**
+ * Split a large commit array into chunks of at most `chunkSize` commits.
+ * Returns a single-element array containing the original array if no chunking is needed.
+ */
+export function chunkCommits(commits: GitCommit[], chunkSize: number): GitCommit[][] {
+  if (commits.length <= chunkSize) return [commits];
+  const chunks: GitCommit[][] = [];
+  for (let i = 0; i < commits.length; i += chunkSize) {
+    chunks.push(commits.slice(i, i + chunkSize));
+  }
+  return chunks;
+}
+
+/**
+ * Merge multiple ChangelogSections (from different chunks) into one by
+ * concatenating entries within each category.
+ */
+export function mergeChangelogSections(sections: ChangelogSection[]): ChangelogSection {
+  const categories = {} as Record<ChangelogCategory, string[]>;
+  for (const cat of CHANGELOG_CATEGORIES) {
+    categories[cat] = sections.flatMap((s) => s.categories[cat] ?? []);
+  }
+  return {
+    periodStart: sections[0].periodStart,
+    periodEnd: sections[0].periodEnd,
+    categories,
+    commitMessage: sections[sections.length - 1].commitMessage,
+  };
+}
+
+/**
+ * Merge multiple PublicChangelogSections (from different chunks) into one by
+ * concatenating entries within each category. Title and summary are taken
+ * from the first section.
+ */
+export function mergePublicChangelogSections(
+  sections: PublicChangelogSection[],
+): PublicChangelogSection {
+  const categories = {} as Record<PublicChangelogCategory, string[]>;
+  for (const cat of PUBLIC_CHANGELOG_CATEGORIES) {
+    categories[cat] = sections.flatMap((s) => s.categories[cat] ?? []);
+  }
+  return {
+    periodStart: sections[0].periodStart,
+    periodEnd: sections[0].periodEnd,
+    title: sections[0].title,
+    summary: sections[0].summary,
+    categories,
+  };
+}
+
 function buildSystemPrompt(language: string): string {
   return `You are a professional changelog author. Given git commits with file statistics, produce a professional changelog section.
 
@@ -108,16 +165,19 @@ export interface GenerateOptions {
   group: PeriodGroup;
   logger?: Logger;
   systemPrompt?: string;
+  chunkSize?: number;
 }
 
 /**
- * Generate a changelog section for a period's worth of commits using AI.
+ * Generate a changelog section for a single chunk of commits using AI.
  * Uses retry (up to 3 attempts) if the AI returns invalid JSON.
  * Throws if the API key is missing or all attempts fail.
  */
-export async function generateChangelogSection(opts: GenerateOptions): Promise<ChangelogSection> {
-  const apiKey = getApiKey(opts.provider);
-  const systemPrompt = opts.systemPrompt ?? buildSystemPrompt(opts.language);
+async function generateSingleChunkSection(
+  opts: GenerateOptions,
+  apiKey: string,
+  systemPrompt: string,
+): Promise<ChangelogSection> {
   const baseUserPrompt = formatCommitsForPrompt(opts.group.commits);
   const logger = opts.logger;
 
@@ -167,6 +227,49 @@ ${raw.slice(0, 500)}...`);
     `AI failed to produce valid changelog JSON after ${MAX_RETRIES} attempts. ` +
       `Last error: ${lastError?.message ?? "unknown"}. Last response: ${lastRaw.slice(0, 300)}`,
   );
+}
+
+/**
+ * Generate a changelog section for a period's worth of commits using AI.
+ * If the period has more commits than `chunkSize` (default 200), the commits
+ * are split into chunks, each chunk is processed independently, and the
+ * resulting sections are merged by concatenating entries within each category.
+ * Uses retry (up to 3 attempts) per chunk if the AI returns invalid JSON.
+ * Throws if the API key is missing or all attempts fail for any chunk.
+ */
+export async function generateChangelogSection(opts: GenerateOptions): Promise<ChangelogSection> {
+  const apiKey = getApiKey(opts.provider);
+  const systemPrompt = opts.systemPrompt ?? buildSystemPrompt(opts.language);
+  const chunkSize = opts.chunkSize ?? DEFAULT_CHUNK_SIZE;
+  const chunks = chunkCommits(opts.group.commits, chunkSize);
+  const logger = opts.logger;
+
+  if (chunks.length <= 1) {
+    return generateSingleChunkSection(opts, apiKey, systemPrompt);
+  }
+
+  logger?.info(
+    `changelog-live: [AI] splitting ${opts.group.commits.length} commits into ${chunks.length} chunks of ~${chunkSize}`,
+  );
+
+  const sections: ChangelogSection[] = [];
+  for (let i = 0; i < chunks.length; i++) {
+    logger?.info(
+      `changelog-live: [AI] processing chunk ${i + 1}/${chunks.length} (${chunks[i].length} commits)`,
+    );
+    const chunkGroup: PeriodGroup = {
+      ...opts.group,
+      commits: chunks[i],
+    };
+    const section = await generateSingleChunkSection(
+      { ...opts, group: chunkGroup },
+      apiKey,
+      systemPrompt,
+    );
+    sections.push(section);
+  }
+
+  return mergeChangelogSections(sections);
 }
 
 // ---------------------------------------------------------------------------
@@ -276,18 +379,19 @@ export interface PublicGenerateOptions {
   group: PeriodGroup;
   logger?: Logger;
   systemPrompt?: string;
+  chunkSize?: number;
 }
 
 /**
- * Generate a public changelog section for a period's worth of commits using AI.
+ * Generate a public changelog section for a single chunk of commits using AI.
  * Uses an escalating retry (up to 3 attempts) if the AI-generated title
  * does not contain the required date range.
  */
-export async function generatePublicChangelogSection(
+async function generateSinglePublicChunkSection(
   opts: PublicGenerateOptions,
+  apiKey: string,
+  systemPrompt: string,
 ): Promise<PublicChangelogSection> {
-  const apiKey = getApiKey(opts.provider);
-  const systemPrompt = opts.systemPrompt ?? buildPublicSystemPrompt(opts.language);
   const baseUserPrompt = formatCommitsForPrompt(opts.group.commits);
   const logger = opts.logger;
 
@@ -339,6 +443,52 @@ ${raw.slice(0, 500)}...`);
     `AI failed to produce a public changelog title with date range after ${MAX_PUBLIC_RETRIES} attempts. ` +
       `Last response: ${lastRaw.slice(0, 300)}`,
   );
+}
+
+/**
+ * Generate a public changelog section for a period's worth of commits using AI.
+ * If the period has more commits than `chunkSize` (default 200), the commits
+ * are split into chunks, each chunk is processed independently, and the
+ * resulting sections are merged by concatenating entries within each category.
+ * Title and summary are taken from the first chunk's result.
+ * Uses an escalating retry (up to 3 attempts) per chunk if the AI-generated title
+ * does not contain the required date range.
+ */
+export async function generatePublicChangelogSection(
+  opts: PublicGenerateOptions,
+): Promise<PublicChangelogSection> {
+  const apiKey = getApiKey(opts.provider);
+  const systemPrompt = opts.systemPrompt ?? buildPublicSystemPrompt(opts.language);
+  const chunkSize = opts.chunkSize ?? DEFAULT_CHUNK_SIZE;
+  const chunks = chunkCommits(opts.group.commits, chunkSize);
+  const logger = opts.logger;
+
+  if (chunks.length <= 1) {
+    return generateSinglePublicChunkSection(opts, apiKey, systemPrompt);
+  }
+
+  logger?.info(
+    `changelog-live: [AI] splitting ${opts.group.commits.length} public commits into ${chunks.length} chunks of ~${chunkSize}`,
+  );
+
+  const sections: PublicChangelogSection[] = [];
+  for (let i = 0; i < chunks.length; i++) {
+    logger?.info(
+      `changelog-live: [AI] processing public chunk ${i + 1}/${chunks.length} (${chunks[i].length} commits)`,
+    );
+    const chunkGroup: PeriodGroup = {
+      ...opts.group,
+      commits: chunks[i],
+    };
+    const section = await generateSinglePublicChunkSection(
+      { ...opts, group: chunkGroup },
+      apiKey,
+      systemPrompt,
+    );
+    sections.push(section);
+  }
+
+  return mergePublicChangelogSections(sections);
 }
 
 /**

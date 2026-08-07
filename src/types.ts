@@ -99,6 +99,7 @@ export const CHANGELOG_CONFIG_SCHEMA = z.object({
     })
     .default({ dir: ".", filename: "CHANGELOG" }),
   maxHistoryPeriods: z.number().int().positive().optional(),
+  commitChunkSize: z.number().int().positive().default(200),
   sortOrder: SORT_ORDER_SCHEMA.default("desc"),
   publicChangelog: z.boolean().default(false),
   filter: COMMIT_FILTER_SCHEMA.default({
