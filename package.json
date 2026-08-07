@@ -1,6 +1,6 @@
 {
   "name": "@warpgogol/changelog-live",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "AI-powered CHANGELOG.md generator from git history with multi-language support",
   "license": "Apache-2.0",
   "author": "Andrii Syrokomskyi <andrii@syrokomskyi.com> (https://syrokomskyi.com)",
