@@ -251,3 +251,13 @@ done
 ## Changelog
 
 [CHANGELOG.md](CHANGELOG.md)
+
+## Community
+
+- [Contributing](CONTRIBUTING.md)
+- [Code of Conduct](CODE_OF_CONDUCT.md)
+- [Security](SECURITY.md)
+
+## License
+
+Apache-2.0 — see [LICENSE](LICENSE)
