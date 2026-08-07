@@ -12,8 +12,8 @@ import type { ChangelogSection, ParsedChangelog } from "../types.js";
 describe("renderSection", () => {
   it("renders a section with categories", () => {
     const section: ChangelogSection = {
-      weekStart: "2026-07-10",
-      weekEnd: "2026-07-16",
+      periodStart: "2026-07-10",
+      periodEnd: "2026-07-16",
       categories: {
         added: ["Add Matomo analytics", "Add privacy-first config"],
         changed: [],
@@ -38,8 +38,8 @@ describe("renderSection", () => {
 
   it("renders empty section with just header", () => {
     const section: ChangelogSection = {
-      weekStart: "2026-07-10",
-      weekEnd: "2026-07-16",
+      periodStart: "2026-07-10",
+      periodEnd: "2026-07-16",
       categories: {
         added: [],
         changed: [],
@@ -61,8 +61,8 @@ describe("renderFullChangelog", () => {
   it("renders with desc sort (newest first)", () => {
     const sections: ChangelogSection[] = [
       {
-        weekStart: "2026-07-03",
-        weekEnd: "2026-07-09",
+        periodStart: "2026-07-03",
+        periodEnd: "2026-07-09",
         categories: {
           added: ["Earlier"],
           changed: [],
@@ -74,8 +74,8 @@ describe("renderFullChangelog", () => {
         commitMessage: "earlier",
       },
       {
-        weekStart: "2026-07-10",
-        weekEnd: "2026-07-16",
+        periodStart: "2026-07-10",
+        periodEnd: "2026-07-16",
         categories: {
           added: ["Later"],
           changed: [],
@@ -123,9 +123,9 @@ All notable changes.
     const parsed = parseChangelog(content);
     expect(parsed.header).toContain("# Changelog");
     expect(parsed.sections).toHaveLength(2);
-    expect(parsed.sections[0].weekStart).toBe("2026-07-10");
-    expect(parsed.sections[0].weekEnd).toBe("2026-07-16");
-    expect(parsed.sections[1].weekStart).toBe("2026-07-03");
+    expect(parsed.sections[0].periodStart).toBe("2026-07-10");
+    expect(parsed.sections[0].periodEnd).toBe("2026-07-16");
+    expect(parsed.sections[1].periodStart).toBe("2026-07-03");
   });
 
   it("handles empty changelog", () => {
@@ -138,30 +138,30 @@ All notable changes.
     const content = `# Changelog\n\n## 2026-07-10 - 2026-07-16\n\n### Added\n- Test\n`;
     const parsed = parseChangelog(content);
     expect(parsed.sections).toHaveLength(1);
-    expect(parsed.sections[0].weekStart).toBe("2026-07-10");
+    expect(parsed.sections[0].periodStart).toBe("2026-07-10");
   });
 
   it("handles dotdot separator in dates", () => {
     const content = `# Changelog\n\n## 2026-07-10 .. 2026-07-16\n\n### Added\n- Test\n`;
     const parsed = parseChangelog(content);
     expect(parsed.sections).toHaveLength(1);
-    expect(parsed.sections[0].weekStart).toBe("2026-07-10");
+    expect(parsed.sections[0].periodStart).toBe("2026-07-10");
   });
 });
 
 describe("getLastSection", () => {
-  it("returns section with latest weekStart", () => {
+  it("returns section with latest periodStart", () => {
     const parsed: ParsedChangelog = {
       header: "# Changelog",
       sections: [
-        { weekStart: "2026-07-03", weekEnd: "2026-07-09", raw: "" },
-        { weekStart: "2026-07-10", weekEnd: "2026-07-16", raw: "" },
-        { weekStart: "2026-06-25", weekEnd: "2026-07-01", raw: "" },
+        { periodStart: "2026-07-03", periodEnd: "2026-07-09", raw: "" },
+        { periodStart: "2026-07-10", periodEnd: "2026-07-16", raw: "" },
+        { periodStart: "2026-06-25", periodEnd: "2026-07-01", raw: "" },
       ],
     };
 
     const last = getLastSection(parsed);
-    expect(last?.weekStart).toBe("2026-07-10");
+    expect(last?.periodStart).toBe("2026-07-10");
   });
 
   it("returns null for empty sections", () => {
@@ -176,8 +176,8 @@ describe("mergeSections", () => {
       header: "# Changelog",
       sections: [
         {
-          weekStart: "2026-06-25",
-          weekEnd: "2026-07-01",
+          periodStart: "2026-06-25",
+          periodEnd: "2026-07-01",
           raw: "## 2026-06-25 .. 2026-07-01\n\n### Added\n- Old feature\n",
         },
       ],
@@ -185,8 +185,8 @@ describe("mergeSections", () => {
 
     const newSections: ChangelogSection[] = [
       {
-        weekStart: "2026-07-10",
-        weekEnd: "2026-07-16",
+        periodStart: "2026-07-10",
+        periodEnd: "2026-07-16",
         categories: {
           added: ["New feature"],
           changed: [],
@@ -201,8 +201,8 @@ describe("mergeSections", () => {
 
     const merged = mergeSections(existing, newSections);
     expect(merged).toHaveLength(2);
-    expect(merged.find((s) => s.weekStart === "2026-06-25")).toBeDefined();
-    expect(merged.find((s) => s.weekStart === "2026-07-10")).toBeDefined();
+    expect(merged.find((s) => s.periodStart === "2026-06-25")).toBeDefined();
+    expect(merged.find((s) => s.periodStart === "2026-07-10")).toBeDefined();
   });
 
   it("replaces existing week with new section", () => {
@@ -210,8 +210,8 @@ describe("mergeSections", () => {
       header: "# Changelog",
       sections: [
         {
-          weekStart: "2026-07-10",
-          weekEnd: "2026-07-16",
+          periodStart: "2026-07-10",
+          periodEnd: "2026-07-16",
           raw: "## 2026-07-10 .. 2026-07-16\n\n### Added\n- Old entry\n",
         },
       ],
@@ -219,8 +219,8 @@ describe("mergeSections", () => {
 
     const newSections: ChangelogSection[] = [
       {
-        weekStart: "2026-07-10",
-        weekEnd: "2026-07-16",
+        periodStart: "2026-07-10",
+        periodEnd: "2026-07-16",
         categories: {
           added: ["New entry", "Another entry"],
           changed: [],

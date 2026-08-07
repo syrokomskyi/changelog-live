@@ -5,7 +5,7 @@ import {
   parseGenerationResponse,
   generateChangelogSection,
 } from "../ai-generate.js";
-import type { GitCommit, WeekGroup } from "../types.js";
+import type { GitCommit, PeriodGroup } from "../types.js";
 
 vi.mock("../config.js", () => ({
   getApiKey: () => "test-key",
@@ -87,9 +87,9 @@ describe("formatCommitsForPrompt", () => {
 });
 
 describe("parseGenerationResponse", () => {
-  const week: WeekGroup = {
-    weekStart: "2026-07-16",
-    weekEnd: "2026-07-22",
+  const group: PeriodGroup = {
+    periodStart: "2026-07-16",
+    periodEnd: "2026-07-22",
     commits: [],
   };
 
@@ -106,9 +106,9 @@ describe("parseGenerationResponse", () => {
       commitMessage: "Add features and update docs",
     });
 
-    const section = parseGenerationResponse(raw, week);
-    expect(section.weekStart).toBe("2026-07-16");
-    expect(section.weekEnd).toBe("2026-07-22");
+    const section = parseGenerationResponse(raw, group);
+    expect(section.periodStart).toBe("2026-07-16");
+    expect(section.periodEnd).toBe("2026-07-22");
     expect(section.categories.added).toEqual(["Add feature A", "Add feature B"]);
     expect(section.categories.changed).toEqual(["Update C"]);
     expect(section.categories.fixed).toEqual([]);
@@ -124,7 +124,7 @@ describe("parseGenerationResponse", () => {
       commitMessage: "minor",
     });
 
-    const section = parseGenerationResponse(raw, week);
+    const section = parseGenerationResponse(raw, group);
     expect(section.categories.added).toEqual(["Only entry"]);
     expect(section.categories.changed).toEqual([]);
     expect(section.categories.fixed).toEqual([]);
@@ -138,27 +138,27 @@ describe("parseGenerationResponse", () => {
       categories: { added: ["entry"] },
     });
 
-    const section = parseGenerationResponse(raw, week);
+    const section = parseGenerationResponse(raw, group);
     expect(section.commitMessage).toBe("export 2026-07-16");
   });
 
   it("fills missing categories object entirely", () => {
     const raw = JSON.stringify({ commitMessage: "test" });
 
-    const section = parseGenerationResponse(raw, week);
+    const section = parseGenerationResponse(raw, group);
     expect(section.categories.added).toEqual([]);
     expect(section.categories.changed).toEqual([]);
     expect(section.commitMessage).toBe("test");
   });
 
   it("throws on invalid JSON", () => {
-    expect(() => parseGenerationResponse("not json", week)).toThrow("invalid JSON");
+    expect(() => parseGenerationResponse("not json", group)).toThrow("invalid JSON");
   });
 
   it("throws on invalid JSON with truncated content in error", () => {
     const longInvalid = "x".repeat(300);
     try {
-      parseGenerationResponse(longInvalid, week);
+      parseGenerationResponse(longInvalid, group);
       expect.fail("should have thrown");
     } catch (err: unknown) {
       expect(err instanceof Error).toBe(true);
@@ -168,7 +168,7 @@ describe("parseGenerationResponse", () => {
   });
 
   it("handles empty JSON object", () => {
-    const section = parseGenerationResponse("{}", week);
+    const section = parseGenerationResponse("{}", group);
     expect(section.categories.added).toEqual([]);
     expect(section.commitMessage).toBe("export 2026-07-16");
   });
@@ -179,13 +179,14 @@ describe("parseGenerationResponse", () => {
 // ---------------------------------------------------------------------------
 
 describe("generateChangelogSection retry", () => {
-  const week: WeekGroup = {
-    weekStart: "2026-07-16",
-    weekEnd: "2026-07-22",
+  const group: PeriodGroup = {
+    periodStart: "2026-07-16",
+    periodEnd: "2026-07-22",
     commits: [
       {
         hash: "abc",
         date: "2026-07-16",
+        author: "Test",
         message: "Add feature",
         files: [{ path: "src/a.ts", additions: 5, deletions: 0 }],
       },
@@ -208,7 +209,7 @@ describe("generateChangelogSection retry", () => {
       provider: "openai",
       model: "gpt-4",
       language: "en",
-      week,
+      group,
     });
 
     expect(callAiProviderMock).toHaveBeenCalledTimes(1);
@@ -222,7 +223,7 @@ describe("generateChangelogSection retry", () => {
       provider: "openai",
       model: "gpt-4",
       language: "en",
-      week,
+      group,
     });
 
     expect(callAiProviderMock).toHaveBeenCalledTimes(2);
@@ -240,7 +241,7 @@ describe("generateChangelogSection retry", () => {
         provider: "openai",
         model: "gpt-4",
         language: "en",
-        week,
+        group,
       }),
     ).rejects.toThrow("failed to produce valid changelog JSON after 3 attempts");
 
@@ -254,7 +255,7 @@ describe("generateChangelogSection retry", () => {
       provider: "openai",
       model: "gpt-4",
       language: "en",
-      week,
+      group,
     });
 
     const secondCallArgs = callAiProviderMock.mock.calls[1][0];
@@ -271,7 +272,7 @@ describe("generateChangelogSection retry", () => {
       provider: "openai",
       model: "gpt-4",
       language: "en",
-      week,
+      group,
     });
 
     const thirdCallArgs = callAiProviderMock.mock.calls[2][0];
@@ -284,13 +285,14 @@ describe("generateChangelogSection retry", () => {
 // ---------------------------------------------------------------------------
 
 describe("generateChangelogSection custom systemPrompt", () => {
-  const week: WeekGroup = {
-    weekStart: "2026-07-16",
-    weekEnd: "2026-07-22",
+  const group: PeriodGroup = {
+    periodStart: "2026-07-16",
+    periodEnd: "2026-07-22",
     commits: [
       {
         hash: "abc",
         date: "2026-07-16",
+        author: "Test",
         message: "Add feature",
         files: [{ path: "src/a.ts", additions: 5, deletions: 0 }],
       },
@@ -313,7 +315,7 @@ describe("generateChangelogSection custom systemPrompt", () => {
       provider: "openai",
       model: "gpt-4",
       language: "en",
-      week,
+      group,
       systemPrompt: "You are a fintech changelog writer.",
     });
 
@@ -328,7 +330,7 @@ describe("generateChangelogSection custom systemPrompt", () => {
       provider: "openai",
       model: "gpt-4",
       language: "en",
-      week,
+      group,
     });
 
     const callArgs = callAiProviderMock.mock.calls[0][0];

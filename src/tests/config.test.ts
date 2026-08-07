@@ -67,12 +67,12 @@ describe("validateConfig", () => {
     ).toThrow();
   });
 
-  it("accepts maxHistoryWeeks", () => {
+  it("accepts maxHistoryPeriods", () => {
     const config = validateConfig({
       git: { subPath: "src" },
-      maxHistoryWeeks: 4,
+      maxHistoryPeriods: 4,
     });
-    expect(config.maxHistoryWeeks).toBe(4);
+    expect(config.maxHistoryPeriods).toBe(4);
   });
 
   it("accepts sortOrder asc", () => {

@@ -12,7 +12,7 @@ import {
   mergePublicSections,
 } from "../markdown.js";
 import { parsePublicGenerationResponse } from "../ai-generate.js";
-import type { PublicChangelogSection, WeekGroup } from "../types.js";
+import type { PublicChangelogSection, PeriodGroup } from "../types.js";
 
 // ---------------------------------------------------------------------------
 // Config tests
@@ -73,8 +73,8 @@ describe("getPublicTranslationFilePath", () => {
 describe("renderPublicSection", () => {
   it("renders title, summary, and categories", () => {
     const section: PublicChangelogSection = {
-      weekStart: "2026-07-10",
-      weekEnd: "2026-07-17",
+      periodStart: "2026-07-10",
+      periodEnd: "2026-07-17",
       title: "Plattform-Updates für die Woche 2026-07-10 — 2026-07-17",
       summary: "We improved dashboard loading times and added DSGVO-compliant privacy pages.",
       categories: {
@@ -99,8 +99,8 @@ describe("renderPublicSection", () => {
 
   it("renders without summary when empty", () => {
     const section: PublicChangelogSection = {
-      weekStart: "2026-07-10",
-      weekEnd: "2026-07-17",
+      periodStart: "2026-07-10",
+      periodEnd: "2026-07-17",
       title: "Updates 2026-07-10 — 2026-07-17",
       summary: "",
       categories: {
@@ -137,8 +137,8 @@ describe("renderFullPublicChangelog", () => {
   it("sorts sections desc by default", () => {
     const sections: PublicChangelogSection[] = [
       {
-        weekStart: "2026-07-03",
-        weekEnd: "2026-07-10",
+        periodStart: "2026-07-03",
+        periodEnd: "2026-07-10",
         title: "Week 1 2026-07-03 — 2026-07-10",
         summary: "Summary 1",
         categories: {
@@ -150,8 +150,8 @@ describe("renderFullPublicChangelog", () => {
         },
       },
       {
-        weekStart: "2026-07-10",
-        weekEnd: "2026-07-17",
+        periodStart: "2026-07-10",
+        periodEnd: "2026-07-17",
         title: "Week 2 2026-07-10 — 2026-07-17",
         summary: "Summary 2",
         categories: {
@@ -202,13 +202,13 @@ Minor fixes.
     const parsed = parsePublicChangelog(md);
     expect(parsed.header).toContain("# Changelog");
     expect(parsed.sections).toHaveLength(2);
-    expect(parsed.sections[0].weekStart).toBe("2026-07-10");
-    expect(parsed.sections[0].weekEnd).toBe("2026-07-17");
+    expect(parsed.sections[0].periodStart).toBe("2026-07-10");
+    expect(parsed.sections[0].periodEnd).toBe("2026-07-17");
     expect(parsed.sections[0].title).toBe(
       "Plattform-Updates für die Woche 2026-07-10 — 2026-07-17",
     );
     expect(parsed.sections[0].summary).toContain("We improved loading times");
-    expect(parsed.sections[1].weekStart).toBe("2026-07-03");
+    expect(parsed.sections[1].periodStart).toBe("2026-07-03");
     expect(parsed.sections[1].title).toBe("Updates 2026-07-03 — 2026-07-10");
   });
 
@@ -229,8 +229,8 @@ describe("mergePublicSections", () => {
     );
 
     const newSection: PublicChangelogSection = {
-      weekStart: "2026-07-10",
-      weekEnd: "2026-07-17",
+      periodStart: "2026-07-10",
+      periodEnd: "2026-07-17",
       title: "New 2026-07-10 — 2026-07-17",
       summary: "New summary",
       categories: {
@@ -252,8 +252,8 @@ describe("mergePublicSections", () => {
     );
 
     const newSection: PublicChangelogSection = {
-      weekStart: "2026-07-10",
-      weekEnd: "2026-07-17",
+      periodStart: "2026-07-10",
+      periodEnd: "2026-07-17",
       title: "Updated 2026-07-10 — 2026-07-17",
       summary: "Updated summary",
       categories: {
@@ -277,9 +277,9 @@ describe("mergePublicSections", () => {
 // ---------------------------------------------------------------------------
 
 describe("parsePublicGenerationResponse", () => {
-  const week: WeekGroup = {
-    weekStart: "2026-07-10",
-    weekEnd: "2026-07-17",
+  const group: PeriodGroup = {
+    periodStart: "2026-07-10",
+    periodEnd: "2026-07-17",
     commits: [],
   };
 
@@ -296,10 +296,10 @@ describe("parsePublicGenerationResponse", () => {
       },
     });
 
-    const section = parsePublicGenerationResponse(raw, week);
+    const section = parsePublicGenerationResponse(raw, group);
     expect(section).not.toBeNull();
-    expect(section!.weekStart).toBe("2026-07-10");
-    expect(section!.weekEnd).toBe("2026-07-17");
+    expect(section!.periodStart).toBe("2026-07-10");
+    expect(section!.periodEnd).toBe("2026-07-17");
     expect(section!.title).toContain("Plattform-Updates");
     expect(section!.summary).toBe("We improved things.");
     expect(section!.categories.added).toEqual(["Feature A"]);
@@ -319,12 +319,12 @@ describe("parsePublicGenerationResponse", () => {
       },
     });
 
-    const section = parsePublicGenerationResponse(raw, week);
+    const section = parsePublicGenerationResponse(raw, group);
     expect(section).toBeNull();
   });
 
   it("throws on invalid JSON", () => {
-    expect(() => parsePublicGenerationResponse("not json", week)).toThrow();
+    expect(() => parsePublicGenerationResponse("not json", group)).toThrow();
   });
 
   it("handles en-dash separator in title", () => {
@@ -340,16 +340,16 @@ describe("parsePublicGenerationResponse", () => {
       },
     });
 
-    const section = parsePublicGenerationResponse(raw, week);
+    const section = parsePublicGenerationResponse(raw, group);
     expect(section).not.toBeNull();
-    expect(section!.weekStart).toBe("2026-07-10");
-    expect(section!.weekEnd).toBe("2026-07-17");
+    expect(section!.periodStart).toBe("2026-07-10");
+    expect(section!.periodEnd).toBe("2026-07-17");
   });
 
-  it("uses config-driven week boundaries, not AI-generated dates in title", () => {
-    const configWeek: WeekGroup = {
-      weekStart: "2026-07-09",
-      weekEnd: "2026-07-15",
+  it("uses config-driven period boundaries, not AI-generated dates in title", () => {
+    const configGroup: PeriodGroup = {
+      periodStart: "2026-07-09",
+      periodEnd: "2026-07-15",
       commits: [],
     };
 
@@ -365,10 +365,10 @@ describe("parsePublicGenerationResponse", () => {
       },
     });
 
-    const section = parsePublicGenerationResponse(raw, configWeek);
+    const section = parsePublicGenerationResponse(raw, configGroup);
     expect(section).not.toBeNull();
-    expect(section!.weekStart).toBe("2026-07-09");
-    expect(section!.weekEnd).toBe("2026-07-15");
+    expect(section!.periodStart).toBe("2026-07-09");
+    expect(section!.periodEnd).toBe("2026-07-15");
     expect(section!.title).toBe("Plattform-Updates für die Woche 2026-07-09 — 2026-07-15");
   });
 });

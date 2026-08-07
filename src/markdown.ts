@@ -76,7 +76,7 @@ function parseCategoriesFromMarkdown<C extends string>(
  */
 export function renderSection(section: ChangelogSection): string {
   const lines: string[] = [];
-  lines.push(`## ${section.weekStart} .. ${section.weekEnd}`);
+  lines.push(`## ${section.periodStart} .. ${section.periodEnd}`);
   lines.push("");
 
   for (const cat of CHANGELOG_CATEGORIES) {
@@ -113,8 +113,8 @@ export function renderFullChangelog(
   const header = existingHeader ?? renderHeader();
   const sorted = [...sections].sort((a, b) =>
     sortOrder === "desc"
-      ? b.weekStart.localeCompare(a.weekStart)
-      : a.weekStart.localeCompare(b.weekStart),
+      ? b.periodStart.localeCompare(a.periodStart)
+      : a.periodStart.localeCompare(b.periodStart),
   );
 
   const body = sorted.map(renderSection).join("\n");
@@ -147,8 +147,8 @@ export function parseChangelog(content: string): ParsedChangelog {
         sections.push(currentSection);
       }
       currentSection = {
-        weekStart: match[1],
-        weekEnd: match[2],
+        periodStart: match[1],
+        periodEnd: match[2],
         raw: "",
       };
       currentLines = [line];
@@ -170,11 +170,11 @@ export function parseChangelog(content: string): ParsedChangelog {
 
 /**
  * Find the last (most recent) section in a parsed changelog.
- * "Last" = the section with the latest weekStart, regardless of file order.
+ * "Last" = the section with the latest periodStart, regardless of file order.
  */
 export function getLastSection(parsed: ParsedChangelog): ParsedSection | null {
   if (parsed.sections.length === 0) return null;
-  return parsed.sections.reduce((latest, s) => (s.weekStart > latest.weekStart ? s : latest));
+  return parsed.sections.reduce((latest, s) => (s.periodStart > latest.periodStart ? s : latest));
 }
 
 // ---------------------------------------------------------------------------
@@ -183,14 +183,14 @@ export function getLastSection(parsed: ParsedChangelog): ParsedSection | null {
 
 /**
  * Merge new sections into an existing parsed changelog.
- * If a new section's week already exists in the parsed changelog, it replaces it.
+ * If a new section's period already exists in the parsed changelog, it replaces it.
  * Otherwise, it's added.
  */
 export function mergeSections(
   existing: ParsedChangelog,
   newSections: ChangelogSection[],
 ): ChangelogSection[] {
-  const existingWeeks = new Set(existing.sections.map((s) => s.weekStart));
+  const existingPeriods = new Set(existing.sections.map((s) => s.periodStart));
   const allSections: ChangelogSection[] = [];
 
   // Convert existing sections to ChangelogSection format (raw preserved)
@@ -203,8 +203,8 @@ export function mergeSections(
 
   // Add or replace with new sections
   for (const newSection of newSections) {
-    if (existingWeeks.has(newSection.weekStart)) {
-      const idx = allSections.findIndex((s) => s.weekStart === newSection.weekStart);
+    if (existingPeriods.has(newSection.periodStart)) {
+      const idx = allSections.findIndex((s) => s.periodStart === newSection.periodStart);
       if (idx >= 0) {
         allSections[idx] = newSection;
       } else {
@@ -227,14 +227,14 @@ function parseSectionRaw(raw: string): ChangelogSection | null {
   const headerMatch = lines[0]?.match(SECTION_HEADER_REGEX);
   if (!headerMatch) return null;
 
-  const weekStart = headerMatch[1];
-  const weekEnd = headerMatch[2];
+  const periodStart = headerMatch[1];
+  const periodEnd = headerMatch[2];
 
   const categories = parseCategoriesFromMarkdown(raw, CHANGELOG_CATEGORIES, CATEGORY_LABELS);
 
   return {
-    weekStart,
-    weekEnd,
+    periodStart,
+    periodEnd,
     categories,
     commitMessage: "",
   };
@@ -291,8 +291,8 @@ export function renderFullPublicChangelog(
   const header = existingHeader ?? renderPublicHeader();
   const sorted = [...sections].sort((a, b) =>
     sortOrder === "desc"
-      ? b.weekStart.localeCompare(a.weekStart)
-      : a.weekStart.localeCompare(b.weekStart),
+      ? b.periodStart.localeCompare(a.periodStart)
+      : a.periodStart.localeCompare(b.periodStart),
   );
 
   const body = sorted.map(renderPublicSection).join("\n");
@@ -319,8 +319,8 @@ export function parsePublicChangelog(content: string): ParsedPublicChangelog {
         if (parsed) sections.push(parsed);
       }
       currentSection = {
-        weekStart: match[1],
-        weekEnd: match[2],
+        periodStart: match[1],
+        periodEnd: match[2],
         title: line.replace(/^##\s+/, "").trim(),
         summary: "",
         raw: "",
@@ -347,18 +347,18 @@ export function parsePublicChangelog(content: string): ParsedPublicChangelog {
  */
 export function getLastPublicSection(parsed: ParsedPublicChangelog): ParsedPublicSection | null {
   if (parsed.sections.length === 0) return null;
-  return parsed.sections.reduce((latest, s) => (s.weekStart > latest.weekStart ? s : latest));
+  return parsed.sections.reduce((latest, s) => (s.periodStart > latest.periodStart ? s : latest));
 }
 
 /**
  * Merge new public sections into an existing parsed public changelog.
- * If a new section's week already exists, it replaces it.
+ * If a new section's period already exists, it replaces it.
  */
 export function mergePublicSections(
   existing: ParsedPublicChangelog,
   newSections: PublicChangelogSection[],
 ): PublicChangelogSection[] {
-  const existingWeeks = new Set(existing.sections.map((s) => s.weekStart));
+  const existingPeriods = new Set(existing.sections.map((s) => s.periodStart));
   const allSections: PublicChangelogSection[] = [];
 
   for (const s of existing.sections) {
@@ -367,8 +367,8 @@ export function mergePublicSections(
   }
 
   for (const newSection of newSections) {
-    if (existingWeeks.has(newSection.weekStart)) {
-      const idx = allSections.findIndex((s) => s.weekStart === newSection.weekStart);
+    if (existingPeriods.has(newSection.periodStart)) {
+      const idx = allSections.findIndex((s) => s.periodStart === newSection.periodStart);
       if (idx >= 0) {
         allSections[idx] = newSection;
       } else {
@@ -390,8 +390,8 @@ function parsePublicSectionRaw(raw: string): ParsedPublicSection | null {
   const headerMatch = lines[0]?.match(PUBLIC_SECTION_HEADER_REGEX);
   if (!headerMatch) return null;
 
-  const weekStart = headerMatch[1];
-  const weekEnd = headerMatch[2];
+  const periodStart = headerMatch[1];
+  const periodEnd = headerMatch[2];
   const title = lines[0].replace(/^##\s+/, "").trim();
 
   // Extract summary: text between header and first ### category
@@ -409,8 +409,8 @@ function parsePublicSectionRaw(raw: string): ParsedPublicSection | null {
   }
 
   return {
-    weekStart,
-    weekEnd,
+    periodStart,
+    periodEnd,
     title,
     summary,
     raw,
@@ -432,8 +432,8 @@ function parsePublicSectionRawFull(s: ParsedPublicSection): PublicChangelogSecti
   );
 
   return {
-    weekStart: s.weekStart,
-    weekEnd: s.weekEnd,
+    periodStart: s.periodStart,
+    periodEnd: s.periodEnd,
     title: s.title,
     summary: s.summary,
     categories,
@@ -446,7 +446,7 @@ function parsePublicSectionRawFull(s: ParsedPublicSection): PublicChangelogSecti
 
 /**
  * Parse a translated markdown section back into a ChangelogSection.
- * Preserves the weekStart/weekEnd/commitMessage from the original.
+ * Preserves the periodStart/periodEnd/commitMessage from the original.
  */
 export function parseTranslatedSection(
   translatedMd: string,
@@ -463,16 +463,16 @@ export function parseTranslatedSection(
     );
 
     return {
-      weekStart: original.weekStart,
-      weekEnd: original.weekEnd,
+      periodStart: original.periodStart,
+      periodEnd: original.periodEnd,
       categories,
       commitMessage: original.commitMessage,
     };
   }
 
   return {
-    weekStart: original.weekStart,
-    weekEnd: original.weekEnd,
+    periodStart: original.periodStart,
+    periodEnd: original.periodEnd,
     categories: parseCategoriesFromMarkdown("", CHANGELOG_CATEGORIES, CATEGORY_LABELS),
     commitMessage: original.commitMessage,
   };
@@ -480,7 +480,7 @@ export function parseTranslatedSection(
 
 /**
  * Parse a translated public markdown section back into a PublicChangelogSection.
- * Preserves weekStart/weekEnd/title from the original.
+ * Preserves periodStart/periodEnd/title from the original.
  */
 export function parseTranslatedPublicSection(
   translatedMd: string,
@@ -497,8 +497,8 @@ export function parseTranslatedPublicSection(
     );
 
     return {
-      weekStart: original.weekStart,
-      weekEnd: original.weekEnd,
+      periodStart: original.periodStart,
+      periodEnd: original.periodEnd,
       title: section.title || original.title,
       summary: section.summary || original.summary,
       categories,
@@ -506,8 +506,8 @@ export function parseTranslatedPublicSection(
   }
 
   return {
-    weekStart: original.weekStart,
-    weekEnd: original.weekEnd,
+    periodStart: original.periodStart,
+    periodEnd: original.periodEnd,
     title: original.title,
     summary: original.summary,
     categories: parseCategoriesFromMarkdown(
