@@ -35,3 +35,6 @@ postProcess:
 git:
   remote: git@github.com:syrokomskyi/changelog-live.git
   autoPush: true
+
+skipSecretScan: true
+versionBump: patch
