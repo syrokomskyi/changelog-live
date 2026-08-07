@@ -1,6 +1,6 @@
 {
   "name": "@warpgogol/changelog-live",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "AI-powered CHANGELOG.md generator from git history with multi-language support",
   "license": "Apache-2.0",
   "author": "Andrii Syrokomskyi <andrii@syrokomskyi.com> (https://syrokomskyi.com)",
@@ -54,7 +54,10 @@
       "default": "./dist/index.js"
     }
   },
-  "files": ["dist", "!**/*.tsbuildinfo"],
+  "files": [
+    "dist",
+    "!**/*.tsbuildinfo"
+  ],
   "dependencies": {
     "commander": "^15.0.0",
     "tslib": "^2.8.1",
