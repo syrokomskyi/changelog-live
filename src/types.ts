@@ -61,6 +61,7 @@ export const COMMIT_FILTER_SCHEMA = z.object({
   excludeMerges: z.boolean().default(false),
   excludeAuthors: z.array(z.string()).default([]),
   excludePatterns: z.array(z.string()).default([]),
+  excludeChangelogOnlyCommits: z.boolean().default(true),
 });
 
 export type CommitFilter = z.infer<typeof COMMIT_FILTER_SCHEMA>;
@@ -104,6 +105,7 @@ export const CHANGELOG_CONFIG_SCHEMA = z.object({
     excludeMerges: false,
     excludeAuthors: [],
     excludePatterns: [],
+    excludeChangelogOnlyCommits: true,
   }),
 });
 

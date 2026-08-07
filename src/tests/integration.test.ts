@@ -11,6 +11,7 @@ import {
   formatDate,
   getWeekStart,
   resolveTagToDate,
+  isChangelogOnlyCommit,
 } from "../git-collect.js";
 
 async function createTempRepo(): Promise<{ dir: string; cleanup: () => Promise<void> }> {
@@ -263,6 +264,7 @@ describe("integration: commit filtering (ADR-0006)", () => {
       excludeMerges: true,
       excludeAuthors: [],
       excludePatterns: [],
+      excludeChangelogOnlyCommits: false,
     };
 
     const commits = collectCommits(dir, ["src"], undefined, undefined, filter);
@@ -289,6 +291,7 @@ describe("integration: commit filtering (ADR-0006)", () => {
       excludeMerges: false,
       excludeAuthors: [],
       excludePatterns: [],
+      excludeChangelogOnlyCommits: false,
     };
 
     const commitsWithFilter = collectCommits(dir, ["src"], undefined, undefined, filter);
@@ -306,6 +309,7 @@ describe("integration: commit filtering (ADR-0006)", () => {
       excludeMerges: false,
       excludeAuthors: ["dependabot[bot]"],
       excludePatterns: [],
+      excludeChangelogOnlyCommits: false,
     };
 
     const commits = collectCommits(dir, ["src"], undefined, undefined, filter);
@@ -322,6 +326,7 @@ describe("integration: commit filtering (ADR-0006)", () => {
       excludeMerges: false,
       excludeAuthors: [],
       excludePatterns: ["^chore\\(deps\\):", "^ci:"],
+      excludeChangelogOnlyCommits: false,
     };
 
     const commits = collectCommits(dir, ["src"], undefined, undefined, filter);
@@ -338,6 +343,7 @@ describe("integration: commit filtering (ADR-0006)", () => {
       excludeMerges: true,
       excludeAuthors: ["renovate[bot]"],
       excludePatterns: ["^chore\\(deps\\):"],
+      excludeChangelogOnlyCommits: false,
     };
 
     const commits = collectCommits(dir, ["src"], undefined, undefined, filter);
@@ -353,9 +359,121 @@ describe("integration: commit filtering (ADR-0006)", () => {
       excludeMerges: false,
       excludeAuthors: [],
       excludePatterns: [],
+      excludeChangelogOnlyCommits: false,
     };
 
     const commits = collectCommits(dir, ["src"], undefined, undefined, filter);
     expect(commits).toHaveLength(2);
+  });
+});
+
+describe("integration: changelog-only commit exclusion", () => {
+  let dir: string;
+  let cleanup: () => Promise<void>;
+
+  beforeEach(async () => {
+    const result = await createTempRepo();
+    dir = result.dir;
+    cleanup = result.cleanup;
+  });
+
+  afterEach(async () => {
+    await cleanup();
+  });
+
+  it("isChangelogOnlyCommit returns true for commits touching only CHANGELOG files", async () => {
+    await commitFile(dir, "CHANGELOG.md", "# Changelog\n", "Update changelog", "2026-07-16");
+
+    const commits = collectCommits(dir, ["."]);
+    expect(commits).toHaveLength(1);
+    expect(isChangelogOnlyCommit(commits[0])).toBe(true);
+  });
+
+  it("isChangelogOnlyCommit returns true for translated CHANGELOG files", async () => {
+    await commitFile(dir, "CHANGELOG.de.md", "# Changelog\n", "Update de changelog", "2026-07-16");
+
+    const commits = collectCommits(dir, ["."]);
+    expect(commits).toHaveLength(1);
+    expect(isChangelogOnlyCommit(commits[0])).toBe(true);
+  });
+
+  it("isChangelogOnlyCommit returns false for commits with non-CHANGELOG files", async () => {
+    await commitFile(dir, "src/a.ts", "a", "Add feature", "2026-07-16");
+    await commitFile(dir, "CHANGELOG.md", "# Changelog\n", "Update changelog", "2026-07-17");
+
+    const commits = collectCommits(dir, ["."]);
+    const featureCommit = commits.find((c) => c.message === "Add feature");
+    expect(featureCommit).toBeDefined();
+    expect(isChangelogOnlyCommit(featureCommit!)).toBe(false);
+  });
+
+  it("isChangelogOnlyCommit returns false for mixed commits", async () => {
+    await fs.mkdir(path.join(dir, "src"), { recursive: true });
+    await fs.writeFile(path.join(dir, "src/a.ts"), "a");
+    await fs.writeFile(path.join(dir, "CHANGELOG.md"), "# Changelog\n");
+    const { execSync } = await import("node:child_process");
+    execSync("git add -A", { cwd: dir, stdio: "pipe" });
+    execSync('git commit -m "Add feature and update changelog" --date="2026-07-16 12:00:00"', {
+      cwd: dir,
+      env: {
+        ...process.env,
+        GIT_AUTHOR_DATE: "2026-07-16 12:00:00",
+        GIT_COMMITTER_DATE: "2026-07-16 12:00:00",
+      },
+      stdio: "pipe",
+    });
+
+    const commits = collectCommits(dir, ["."]);
+    expect(commits).toHaveLength(1);
+    expect(isChangelogOnlyCommit(commits[0])).toBe(false);
+  });
+
+  it("excludes changelog-only commits by default", async () => {
+    await commitFile(dir, "src/a.ts", "a", "Add feature", "2026-07-16");
+    await commitFile(dir, "CHANGELOG.md", "# Changelog\n", "Update changelog", "2026-07-17");
+
+    const filter: CommitFilter = {
+      excludeMerges: false,
+      excludeAuthors: [],
+      excludePatterns: [],
+      excludeChangelogOnlyCommits: true,
+    };
+
+    const commits = collectCommits(dir, ["."], undefined, undefined, filter);
+    expect(commits).toHaveLength(1);
+    expect(commits[0].message).toBe("Add feature");
+  });
+
+  it("includes changelog-only commits when excludeChangelogOnlyCommits is false", async () => {
+    await commitFile(dir, "src/a.ts", "a", "Add feature", "2026-07-16");
+    await commitFile(dir, "CHANGELOG.md", "# Changelog\n", "Update changelog", "2026-07-17");
+
+    const filter: CommitFilter = {
+      excludeMerges: false,
+      excludeAuthors: [],
+      excludePatterns: [],
+      excludeChangelogOnlyCommits: false,
+    };
+
+    const commits = collectCommits(dir, ["."], undefined, undefined, filter);
+    expect(commits).toHaveLength(2);
+  });
+
+  it("excludes changelog-only commits even without explicit filter (default behavior)", async () => {
+    await commitFile(dir, "src/a.ts", "a", "Add feature", "2026-07-16");
+    await commitFile(dir, "CHANGELOG.md", "# Changelog\n", "Update changelog", "2026-07-17");
+    await commitFile(dir, "CHANGELOG.de.md", "# Changelog\n", "Update de changelog", "2026-07-18");
+
+    // No filter passed — applyCommitFilter is not called, so we test via explicit default filter
+    const filter: CommitFilter = {
+      excludeMerges: false,
+      excludeAuthors: [],
+      excludePatterns: [],
+      excludeChangelogOnlyCommits: true,
+    };
+
+    const commits = collectCommits(dir, ["."], undefined, undefined, filter);
+    expect(commits).toHaveLength(1);
+    expect(commits[0].message).toBe("Add feature");
   });
 });

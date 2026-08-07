@@ -155,6 +155,7 @@ export async function generateChangelog(
       ((options as GenerateOptions & { noMerges?: boolean })?.noMerges ?? false),
     excludeAuthors: config.filter.excludeAuthors,
     excludePatterns: config.filter.excludePatterns,
+    excludeChangelogOnlyCommits: config.filter.excludeChangelogOnlyCommits,
   };
 
   // 1. Read existing CHANGELOG to find last entry date

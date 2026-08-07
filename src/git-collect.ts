@@ -9,6 +9,7 @@
   <item>Initial implementation of git commit analysis</item>
   <item>ADR-0006: added author field to git log format, filter parameter to collectCommits, post-collection filtering for merges/authors/patterns</item>
   <item>ADR-0004: added untilDate parameter to collectCommits() and resolveTagToDate() helper</item>
+  <item>Added excludeChangelogOnlyCommits filter and isChangelogOnlyCommit helper to exclude commits that only touch CHANGELOG files</item>
 </CHANGE_SUMMARY>
 */
 
@@ -239,14 +240,23 @@ function getCommitFiles(repoRoot: string, hash: string): GitFileStat[] {
 function applyCommitFilter(commits: GitCommit[], filter: CommitFilter): GitCommit[] {
   const excludeAuthors = new Set(filter.excludeAuthors);
   const excludePatterns = filter.excludePatterns.map((p) => new RegExp(p));
+  const excludeChangelogOnly = filter.excludeChangelogOnlyCommits ?? true;
 
   return commits.filter((commit) => {
     if (excludeAuthors.has(commit.author)) return false;
     for (const pattern of excludePatterns) {
       if (pattern.test(commit.message)) return false;
     }
+    if (excludeChangelogOnly && isChangelogOnlyCommit(commit)) return false;
     return true;
   });
+}
+
+const CHANGELOG_FILE_RE = /(^|\/)CHANGELOG(\.[A-Za-z]{2})?\.md$/i;
+
+export function isChangelogOnlyCommit(commit: GitCommit): boolean {
+  if (commit.files.length === 0) return false;
+  return commit.files.every((f) => CHANGELOG_FILE_RE.test(f.path));
 }
 
 // ---------------------------------------------------------------------------

@@ -162,4 +162,42 @@ ai:
   it("throws for missing file", async () => {
     await expect(loadConfig(path.join(dir, "nonexistent.yaml"))).rejects.toThrow();
   });
+
+  it("resolves repoRoot and output.dir relative to config file directory", async () => {
+    const yaml = `
+git:
+  repoRoot: "../.."
+  paths:
+    - apps/myproject
+output:
+  dir: "."
+  filename: CHANGELOG
+`;
+    const configPath = path.join(dir, "changelog.config.yaml");
+    await fs.writeFile(configPath, yaml, "utf-8");
+
+    const config = await loadConfig(configPath);
+    expect(config.git.repoRoot).toBe(path.resolve(dir, "../.."));
+    expect(config.output.dir).toBe(path.resolve(dir, "."));
+  });
+
+  it("preserves absolute repoRoot and output.dir", async () => {
+    const absRoot = path.resolve(dir, "repo-root");
+    const absOut = path.resolve(dir, "output");
+    const yaml = `
+git:
+  repoRoot: "${absRoot}"
+  paths:
+    - apps/myproject
+output:
+  dir: "${absOut}"
+  filename: CHANGELOG
+`;
+    const configPath = path.join(dir, "changelog.config.yaml");
+    await fs.writeFile(configPath, yaml, "utf-8");
+
+    const config = await loadConfig(configPath);
+    expect(config.git.repoRoot).toBe(absRoot);
+    expect(config.output.dir).toBe(absOut);
+  });
 });

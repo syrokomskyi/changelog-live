@@ -213,6 +213,39 @@ The `init` command reads `changelog.config.default.yaml` from the repo root (or 
 changelog-live init --force
 ```
 
+## Running in a monorepo
+
+When multiple packages or apps each have their own `changelog.config.yaml`, the CLI resolves `git.repoRoot` and `output.dir` relative to the **config file's directory**, not the current working directory. This means you can run the CLI from anywhere and point it at any config:
+
+```bash
+# Both work identically:
+cd apps/hdri && changelog-live
+changelog-live --config apps/hdri/changelog.config.yaml
+```
+
+### Batch regeneration script
+
+To regenerate changelogs across all packages and apps in a monorepo:
+
+```bash
+#!/bin/bash
+set -euo pipefail
+
+CLI="$(git rev-parse --show-toplevel)/packages/changelog-live/src/cli.ts"
+
+find . -name "changelog.config.yaml" -not -path "./node_modules/*" | while read -r cfg; do
+  echo "=== $cfg ==="
+  pnpm exec tsx "$CLI" --config "$cfg" || echo "FAILED: $cfg"
+done
+```
+
+### Key points for agents
+
+- **Paths resolve from the config file** — `repoRoot` and `output.dir` in `changelog.config.yaml` are relative to the config file's directory, not CWD. No need to `cd` into each package.
+- **Retry on `Connection error`** — OpenAI rate limits can cause transient failures. Wait a few seconds and re-run failed configs.
+- **`.env` is auto-loaded** — no need to `source .env` or set `OPENAI_API_KEY` manually; the CLI loads `.env` from the git repo root automatically.
+- **Idempotent** — re-running skips periods already covered. Use `--force` to regenerate existing periods.
+
 ## Changelog
 
 [CHANGELOG.md](CHANGELOG.md)

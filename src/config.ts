@@ -27,11 +27,28 @@ import {
 
 /**
  * Load and validate a changelog config from a YAML file.
+ *
+ * Relative paths in `git.repoRoot` and `output.dir` are resolved relative to
+ * the directory containing the config file, not the current working directory.
+ * This allows running `changelog-live --config apps/hdri/changelog.config.yaml`
+ * from the repo root without `cd`-ing into the config directory.
  */
 export async function loadConfig(configPath: string): Promise<ChangelogConfig> {
   const raw = await fs.readFile(configPath, "utf-8");
   const parsed = YAML.parse(raw);
-  return validateConfig(parsed);
+  const config = validateConfig(parsed);
+
+  const configDir = path.dirname(path.resolve(configPath));
+
+  if (!path.isAbsolute(config.git.repoRoot)) {
+    config.git.repoRoot = path.resolve(configDir, config.git.repoRoot);
+  }
+
+  if (!path.isAbsolute(config.output.dir)) {
+    config.output.dir = path.resolve(configDir, config.output.dir);
+  }
+
+  return config;
 }
 
 /**
