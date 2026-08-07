@@ -1,6 +1,6 @@
 # @warpgogol/changelog-live
 
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE) [![CI](https://img.shields.io/github/actions/workflow/status/syrokomskyi/changelog-live/ci.yml?logo=github-actions&logoColor=white)](https://github.com/syrokomskyi/changelog-live/actions) [![npm](https://img.shields.io/npm/v/@warpgogol/changelog-live?logo=npm&logoColor=white)](https://www.npmjs.com/package/@warpgogol/changelog-live)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE) [![CI](https://img.shields.io/github/actions/workflow/status/syrokomskyi/changelog-live/ci.yml?logo=github-actions&logoColor=white)](https://github.com/syrokomskyi/changelog-live/actions) [![npm](https://img.shields.io/npm/v/@warpgogol/changelog-live?logo=npm&logoColor=white)](https://www.npmjs.com/package/@warpgogol/changelog-live) [![Issues](https://img.shields.io/github/issues/syrokomskyi/changelog-live?logo=github&logoColor=white)](https://github.com/syrokomskyi/changelog-live/issues)
 
 AI-powered CHANGELOG.md generator that collects git history, groups changes by configurable periods (default: weekly, starting Thursday), and produces professional changelog entries using LLMs.
 
