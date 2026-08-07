@@ -13,8 +13,7 @@ stripScopes:
   - "@syrokomskyi/"
   - "@warpgogol/"
   - "@wgogol/"
-preservePackages:
-  - "@warpgogol/repo-extract"
+preservePackages: []
 packageManager: "pnpm"
 ignoreDirs:
   - .output
@@ -23,6 +22,11 @@ ignoreDirs:
   - .astro
   - spec
   - .agents
+
+extraGitignore:
+  - .output
+  - .debug
+  - .debug-public
 
 postProcess:
   - action: delete
