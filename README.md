@@ -13,6 +13,7 @@ AI-powered CHANGELOG.md generator that collects git history, groups changes by c
 - Incremental updates — only processes new commits since last entry
 - Completed periods only — in-progress periods are never written; re-running is idempotent
 - **CLI period control** — `--since`, `--until`, `--since-tag`, `--until-tag`, `--force` for manual period control
+- **Commit filtering** — exclude merge commits, bot authors, and message patterns via config or `--no-merges` CLI flag
 - **Public changelog** — optional `CHANGELOG_PUBLIC.md` with client-facing categories, AI-generated titles, and summaries (independent incremental flow)
 - `init` subcommand — auto-discovers all historical git paths via rename tracing
 - CLI + library API
@@ -68,6 +69,14 @@ ai:
 output:
   dir: .
   filename: CHANGELOG
+filter:
+  excludeMerges: false
+  excludeAuthors:
+    - dependabot[bot]
+    - renovate[bot]
+  excludePatterns:
+    - "^chore\\(deps\\):"
+    - "^ci:"
 maxHistoryPeriods: 2
 sortOrder: desc
 publicChangelog: false
@@ -94,6 +103,21 @@ Both `ai.generation` and `ai.translation` accept an optional `systemPrompt` fiel
 - **`ai.translation.systemPrompt`** — replaces the built-in translation prompt. The custom prompt must instruct the AI to return only translated markdown without preamble.
 
 Language, week dates, and commit data are passed in the user prompt (formed by code), not in the system prompt. This keeps the system prompt static and reusable across runs.
+
+### Commit filtering
+
+The optional `filter` section controls which commits are included in changelog generation:
+
+- **`excludeMerges`** (default: `false`) — when `true`, merge commits are excluded via `git log --no-merges`.
+- **`excludeAuthors`** (default: `[]`) — a list of author names to exclude. Commits whose `author` matches any entry are filtered out.
+- **`excludePatterns`** (default: `[]`) — a list of regex patterns tested against commit messages. Commits whose message matches any pattern are filtered out.
+
+The CLI `--no-merges` flag is a shorthand for `filter.excludeMerges: true`. When both the config and the CLI flag are set, the CLI flag takes priority.
+
+```bash
+# Exclude merge commits via CLI
+changelog-live --no-merges
+```
 
 ## API keys
 
