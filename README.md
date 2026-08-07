@@ -121,7 +121,24 @@ changelog-live --no-merges
 
 ## API keys
 
-Set environment variables: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`. The CLI auto-loads `.env` from the git repo root, then from the current working directory (CWD `.env` takes priority).
+Set environment variables: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`.
+
+### Automatic `.env` loading
+
+The CLI **automatically loads `.env` files** — no manual `source .env`, `--env-file`, or `dotenv` setup is needed. The loading order is:
+
+1. **Git repo root `.env`** — found via `git rev-parse --show-toplevel`, loaded with `process.loadEnvFile()`.
+2. **CWD `.env`** — loaded second, so it takes priority over the repo root `.env` if both exist.
+
+If neither file exists or no API key is found, the CLI throws with a clear error message indicating which environment variable to set.
+
+```bash
+# Just run — .env is auto-loaded from the repo root
+changelog-live
+
+# Or set the key inline if you prefer
+OPENAI_API_KEY=sk-... changelog-live
+```
 
 ## Library API
 
