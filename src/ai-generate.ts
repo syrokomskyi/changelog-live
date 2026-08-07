@@ -329,14 +329,14 @@ Rules:
 13. Use neutral, understandable tone; no marketing clichés ("revolutionary", "unique").
 14. Do not reveal internal task names, tickets, modules, or infrastructure details.
 15. The title MUST contain the date range in format YYYY-MM-DD — YYYY-MM-DD (using an em-dash —).
-16. The title should be a brief release/period heading, e.g. "Plattform-Updates für die Woche 2026-07-10 — 2026-07-17".
+16. The title should be a brief release/period heading in ${langName}, e.g. "Platform Updates 2026-07-10 — 2026-07-17".
 17. The summary should be 2-3 sentences explaining what changed overall and why it matters to the client.
 18. Base each entry ONLY on the files shown in the commit statistics. The commit message may describe repo-wide changes, but this changelog covers only the files listed.
 19. Do not mention "changelog", "CHANGELOG.md", or changes to changelog files themselves.
 
 Return a JSON object with this exact structure:
 {
-  "title": "Plattform-Updates für die Woche 2026-07-10 — 2026-07-17",
+  "title": "Platform Updates 2026-07-10 — 2026-07-17",
   "summary": "2-3 sentence summary",
   "categories": {
     "added": ["entry 1", "entry 2"],

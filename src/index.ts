@@ -153,6 +153,7 @@ export async function generateChangelog(
     ? (resolveTagToDate(config.git.repoRoot, period.untilTag) ?? period.until)
     : period?.until;
   const force = period?.force ?? false;
+  const includeInProgress = period?.includeInProgress ?? false;
 
   // Build effective commit filter: config filter merged with CLI --no-merges override (ADR-0006)
   const effectiveFilter = {
@@ -221,14 +222,14 @@ export async function generateChangelog(
 
     groups = groups.filter((g) => {
       // Skip periods that are still in progress (not yet fully completed)
-      if (isPeriodInProgress(g.periodEnd)) return false;
+      if (!includeInProgress && isPeriodInProgress(g.periodEnd)) return false;
       // Skip periods that are already in the changelog unless --force is set
       if (!force && existingPeriods.has(g.periodStart)) return false;
       return true;
     });
   } else {
-    // First run: still skip in-progress periods
-    groups = groups.filter((g) => !isPeriodInProgress(g.periodEnd));
+    // First run: still skip in-progress periods unless includeInProgress is set
+    groups = groups.filter((g) => includeInProgress || !isPeriodInProgress(g.periodEnd));
   }
 
   if (groups.length === 0 && !config.publicChangelog) {
@@ -421,12 +422,14 @@ export async function generateChangelog(
           existingPublicParsed.sections.map((s) => s.periodStart),
         );
         publicGroups = publicGroups.filter((g) => {
-          if (isPeriodInProgress(g.periodEnd)) return false;
+          if (!includeInProgress && isPeriodInProgress(g.periodEnd)) return false;
           if (!force && existingPublicPeriods.has(g.periodStart)) return false;
           return true;
         });
       } else {
-        publicGroups = publicGroups.filter((g) => !isPeriodInProgress(g.periodEnd));
+        publicGroups = publicGroups.filter(
+          (g) => includeInProgress || !isPeriodInProgress(g.periodEnd),
+        );
       }
 
       if (publicGroups.length === 0) {

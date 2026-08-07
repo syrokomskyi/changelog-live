@@ -76,7 +76,7 @@ function parseCategoriesFromMarkdown<C extends string>(
  */
 export function renderSection(section: ChangelogSection): string {
   const lines: string[] = [];
-  lines.push(`## ${section.periodStart} .. ${section.periodEnd}`);
+  lines.push(`## ${section.periodStart} — ${section.periodEnd}`);
   lines.push("");
 
   for (const cat of CHANGELOG_CATEGORIES) {

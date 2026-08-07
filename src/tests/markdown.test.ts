@@ -26,7 +26,7 @@ describe("renderSection", () => {
     };
 
     const md = renderSection(section);
-    expect(md).toContain("## 2026-07-10 .. 2026-07-16");
+    expect(md).toContain("## 2026-07-10 — 2026-07-16");
     expect(md).toContain("### Added");
     expect(md).toContain("- Add Matomo analytics");
     expect(md).toContain("### Fixed");
@@ -52,7 +52,7 @@ describe("renderSection", () => {
     };
 
     const md = renderSection(section);
-    expect(md).toContain("## 2026-07-10 .. 2026-07-16");
+    expect(md).toContain("## 2026-07-10 — 2026-07-16");
     expect(md).not.toContain("### Added");
   });
 });

@@ -239,6 +239,7 @@ export interface PeriodOptions {
   sinceTag?: string;
   untilTag?: string;
   force?: boolean;
+  includeInProgress?: boolean;
   noMerges?: boolean;
 }
 

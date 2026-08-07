@@ -21,9 +21,9 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile --config.dangerouslyAllowAllBuilds=true
+      - run: pnpm run build
       - run: pnpm run lint
       - run: pnpm run typecheck
-      - run: pnpm run build
       - run: pnpm test
 
   publish:
