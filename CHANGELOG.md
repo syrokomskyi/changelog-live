@@ -1,6 +1,25 @@
 # Changelog
 
 All notable changes to the `changelog-live` project are documented here.
+## 2026-07-30 .. 2026-08-05
+
+### Added
+- Add AGENTS.md files to packages and apps for agent specifications and documentation.
+- Add changelog links to all README.md files across packages and applications.
+- Add extract.config.yaml configuration files for changelog-live and HDRI.
+- Generate CHANGELOG.md files for all packages and apps.
+
+### Changed
+- Rename @wgogol/changelog-live to @warpgogol/changelog-live across the monorepo.
+- Migrate forge dependency from @webgogol/forge@0.3.0 to @warpgogol/forge@0.7.0.
+- Prepare changelog-live and repo-extract packages for public release including configuration and documentation updates.
+- Update dependency versions across the repository, including TypeScript, ESLint, Playwright, commander, openai, and others.
+- Refine extract.config.yaml, LICENSE, tsconfig.json, and README content for public readiness.
+- Enhance upgrade-packages script to support major version pinning.
+
+### Fixed
+- Downgrade TypeScript from 7.0.2 to 6.0.3 to restore compatibility with typescript-eslint.
+
 ## 2026-07-23 .. 2026-07-29
 
 ### Added
