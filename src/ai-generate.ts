@@ -55,6 +55,8 @@ Rules:
 5. Use imperative mood (e.g., "Add Matomo analytics" not "Added Matomo analytics").
 6. Omit empty categories — only include categories that have at least one entry.
 7. Also provide a concise commit message (max 72 chars) summarizing all changes.
+8. Base each entry ONLY on the files shown in the commit statistics. The commit message may describe repo-wide changes, but this changelog covers only the files listed — describe what changed for those files, not the entire repository.
+9. Do not mention "changelog", "CHANGELOG.md", or changes to changelog files themselves.
 
 Return a JSON object with this exact structure:
 {
@@ -226,6 +228,8 @@ Rules:
 15. The title MUST contain the date range in format YYYY-MM-DD — YYYY-MM-DD (using an em-dash —).
 16. The title should be a brief release/period heading, e.g. "Plattform-Updates für die Woche 2026-07-10 — 2026-07-17".
 17. The summary should be 2-3 sentences explaining what changed overall and why it matters to the client.
+18. Base each entry ONLY on the files shown in the commit statistics. The commit message may describe repo-wide changes, but this changelog covers only the files listed.
+19. Do not mention "changelog", "CHANGELOG.md", or changes to changelog files themselves.
 
 Return a JSON object with this exact structure:
 {

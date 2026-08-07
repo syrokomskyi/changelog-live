@@ -77,6 +77,7 @@ filter:
   excludePatterns:
     - "^chore\\(deps\\):"
     - "^ci:"
+  excludeChangelogOnlyCommits: true
 maxHistoryPeriods: 2
 sortOrder: desc
 publicChangelog: false
@@ -111,6 +112,7 @@ The optional `filter` section controls which commits are included in changelog g
 - **`excludeMerges`** (default: `false`) — when `true`, merge commits are excluded via `git log --no-merges`.
 - **`excludeAuthors`** (default: `[]`) — a list of author names to exclude. Commits whose `author` matches any entry are filtered out.
 - **`excludePatterns`** (default: `[]`) — a list of regex patterns tested against commit messages. Commits whose message matches any pattern are filtered out.
+- **`excludeChangelogOnlyCommits`** (default: `true`) — when `true`, commits that only touch `CHANGELOG.md` or translated `CHANGELOG.{lang}.md` files are excluded. This prevents the changelog from recording changes to itself.
 
 The CLI `--no-merges` flag is a shorthand for `filter.excludeMerges: true`. When both the config and the CLI flag are set, the CLI flag takes priority.
 

@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 
+import type { CommitFilter } from "../types.js";
 import {
   collectCommits,
   getFirstCommitDate,
@@ -19,6 +20,7 @@ async function createTempRepo(): Promise<{ dir: string; cleanup: () => Promise<v
   const { execSync } = await import("node:child_process");
 
   execSync("git init", { cwd: dir, stdio: "pipe" });
+  execSync("git branch -M main", { cwd: dir, stdio: "pipe" });
   execSync('git config user.email "test@test.com"', { cwd: dir, stdio: "pipe" });
   execSync('git config user.name "Test"', { cwd: dir, stdio: "pipe" });
 
@@ -254,7 +256,7 @@ describe("integration: commit filtering (ADR-0006)", () => {
     const { execSync } = await import("node:child_process");
     execSync("git checkout -b feature", { cwd: dir, stdio: "pipe" });
     await commitFile(dir, "src/c.ts", "c", "Add c on feature", "2026-07-18");
-    execSync("git checkout master", { cwd: dir, stdio: "pipe" });
+    execSync("git checkout main", { cwd: dir, stdio: "pipe" });
     execSync("git merge --no-ff feature -m \"Merge branch 'feature'\"", {
       cwd: dir,
       stdio: "pipe",
@@ -281,7 +283,7 @@ describe("integration: commit filtering (ADR-0006)", () => {
     const { execSync } = await import("node:child_process");
     execSync("git checkout -b feature", { cwd: dir, stdio: "pipe" });
     await commitFile(dir, "src/b.ts", "b", "Add b", "2026-07-17");
-    execSync("git checkout master", { cwd: dir, stdio: "pipe" });
+    execSync("git checkout main", { cwd: dir, stdio: "pipe" });
     execSync("git merge --no-ff feature -m \"Merge branch 'feature'\"", {
       cwd: dir,
       stdio: "pipe",

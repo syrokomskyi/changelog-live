@@ -10,6 +10,7 @@ async function createTempRepo(): Promise<{ dir: string; cleanup: () => Promise<v
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "changelog-trace-"));
 
   execSync("git init", { cwd: dir, stdio: "pipe" });
+  execSync("git branch -M main", { cwd: dir, stdio: "pipe" });
   execSync('git config user.email "test@test.com"', { cwd: dir, stdio: "pipe" });
   execSync('git config user.name "Test"', { cwd: dir, stdio: "pipe" });
 

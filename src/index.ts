@@ -87,6 +87,7 @@ export {
   getCurrentPeriodStart,
   isPeriodInProgress,
   resolveTagToDate,
+  isChangelogOnlyCommit,
 } from "./git-collect.js";
 export { generateChangelogSection } from "./ai-generate.js";
 export { translateChangelogSection } from "./ai-translate.js";
