@@ -9,6 +9,7 @@
   <item>Initial definition of schemas and types for configuration and changelog management.</item>
   <item>ADR-0006: added CommitFilter schema, filter field to CHANGELOG_CONFIG_SCHEMA, author to GitCommit</item>
   <item>ADR-0007: Added optional systemPrompt field to AI_PROVIDER_SCHEMA for custom AI prompts</item>
+  <item>ADR-0008: Flexible grouping periods — PERIOD_SCHEMA enum (day, week, biweekly, month), PeriodGroup replaces WeekGroup, periodStart/periodEnd replace weekStart/weekEnd, maxHistoryPeriods replaces maxHistoryWeeks</item>
 </CHANGE_SUMMARY>
 */
 

@@ -102,7 +102,7 @@ Both `ai.generation` and `ai.translation` accept an optional `systemPrompt` fiel
 - **`ai.generation.systemPrompt`** — replaces the built-in prompt for both internal and public changelog generation. The custom prompt must instruct the AI to return the same JSON structure (categories + commitMessage for internal; title + summary + categories for public).
 - **`ai.translation.systemPrompt`** — replaces the built-in translation prompt. The custom prompt must instruct the AI to return only translated markdown without preamble.
 
-Language, week dates, and commit data are passed in the user prompt (formed by code), not in the system prompt. This keeps the system prompt static and reusable across runs.
+Language, period dates, and commit data are passed in the user prompt (formed by code), not in the system prompt. This keeps the system prompt static and reusable across runs.
 
 ### Commit filtering
 
